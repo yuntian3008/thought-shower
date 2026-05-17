@@ -1,0 +1,8 @@
+{
+  "name": "through-shower",
+  "description": "Pipeline that walks a feature branch from base-branch setup through brainstorming, Codex review, CodeRabbit review, and merge handoff. Wraps superpowers + codex skills.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Thien"
+  }
+}
