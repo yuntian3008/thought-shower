@@ -2,7 +2,9 @@
 name: coderabbit-shepherd
 description: Use as Stage 4d of the thought-shower pipeline. Walks through every unresolved CodeRabbit thread on a PR, invokes the review-turn skill for each, posts replies + resolve mutations per the user's decisions, and returns a structured status. Threads-only scope — does not own base-flip or CR-existence polling. Report-and-mutate; never edits files or pushes commits.
 tools: Bash, Read, Grep, Glob, Skill, Monitor, BashOutput, KillShell, ToolSearch, TodoWrite
-model: inherit
+skills:
+  - thought-shower:review-turn
+color: pink
 ---
 
 # CodeRabbit Shepherd (threads-only)
