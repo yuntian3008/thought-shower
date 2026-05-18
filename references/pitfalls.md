@@ -87,7 +87,26 @@ The combined-status endpoint (`/commits/<sha>/status`) returns the latest status
 
 This is dramatically simpler than the reviews+comments approach: one API call, native HEAD anchoring, handles clean-pass and skipped cases automatically.
 
-## 11. `gh pr view` with no PR returns non-zero, not empty
+## 11. `\\$` in a double-quoted bash string becomes `\$`, which jq rejects
+
+**Symptom:** `gh api ... --jq "..."` fails with `jq: error: Invalid escape '\\$'` and the calling script reports `FILTER_BROKEN` (or an empty result that we mis-handle).
+
+**Root cause:** the markdown source had `\\$` thinking it would produce a literal `$` end-anchor inside the jq regex. Bash double-quote processing reduces `\\$` to `\$` (backslash + dollar). jq parses string literals and rejects `\$` — only `\\`, `\/`, `\"`, `\b`, `\f`, `\n`, `\r`, `\t`, `\u` are valid string escapes.
+
+**Fix:** use **`\$`** in the source (not `\\$`). Bash sees `\$` and interprets it as an escaped `$` → produces a bare `$` for jq. jq treats `$` in a string as literal, and the regex engine reads it as the end-of-string anchor.
+
+```
+source markdown      :  test("^coderabbitai(\\\\[bot\\\\])?\$"; "i")
+after bash interp    :  test("^coderabbitai(\\[bot\\])?$"; "i")
+jq string content    :  ^coderabbitai(\[bot\])?$
+regex engine sees    :  ^coderabbitai(\[bot\])?$         (correct end-anchor)
+```
+
+Rule of thumb: when the jq filter is in a **double-quoted** bash string (because you need `$VAR` expansion), use `\$` for a literal dollar that should reach jq. When the jq filter is in a **single-quoted** string (`'...'`, no var expansion), use a bare `$` — no escaping needed.
+
+The single-quoted form is safer when possible; reach for double-quoted only when you actually need variable expansion in the filter.
+
+## 12. `gh pr view` with no PR returns non-zero, not empty
 
 **Symptom:** trying to detect "no PR exists" by checking for empty output fails — you get a non-zero exit instead.
 

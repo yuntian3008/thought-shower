@@ -34,7 +34,7 @@ HEAD_OID=<from above>
 
 # Latest CR review on current HEAD
 gh api "repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/pulls/$PR_NUMBER/reviews" \
-  --jq "[ .[] | select(((.user.login // \"\") | test(\"^coderabbitai(\\\\[bot\\\\])?\\$\"; \"i\")) and .commit_id == \"$HEAD_OID\") ] | length"
+  --jq "[ .[] | select(((.user.login // \"\") | test(\"^coderabbitai(\\\\[bot\\\\])?\$\"; \"i\")) and .commit_id == \"$HEAD_OID\") ] | length"
 
 # Unresolved CR threads (use scripts/cr-threads.sh)
 "${CLAUDE_PLUGIN_ROOT}/scripts/cr-threads.sh" $PR_NUMBER \
