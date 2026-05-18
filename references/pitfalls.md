@@ -118,7 +118,19 @@ Script must print **only** terminal lines (`CR_REVIEW_POSTED`, `HEAD_CHANGED:<sh
 
 Use the two-process pattern only to watch a log file someone *else* writes (test runner, server).
 
-## 13. `gh pr view` with no PR returns non-zero, not empty
+## 13. Plugin monitors don't take per-invocation arguments
+
+Plugin-level monitors (`monitors/monitors.json`, requires CC v2.1.105+) declare a fixed shell `command` whose only inputs are `${CLAUDE_PLUGIN_ROOT}`, `${CLAUDE_PROJECT_DIR}`, `${user_config.*}`, and env vars. They can't accept a `<PR_NUMBER>` or `<HEAD_OID>` chosen at handler time.
+
+That rules them out for the three long-running waits we actually have today (Stage 4a base-flip, Stage 4d CR poll, Stage D5 head-watch) — all need per-run args. Keep using the in-tool `Monitor` for those.
+
+Plugin monitors do fit:
+- **Ambient probes** that don't depend on which PR is active — e.g., an `on-skill-invoke:ship` one-shot that checks the CR GitHub App is installed on the active repo, so the user is warned before hitting Stage 4d's 30-min timeout.
+- **Session-long watchers** for a hypothetical future `/thought-shower:dashboard` command (none exists today).
+
+Revisit when we add a watcher/dashboard command. Until then, the declarative format buys us nothing.
+
+## 14. `gh pr view` with no PR returns non-zero, not empty
 
 **Symptom:** trying to detect "no PR exists" by checking for empty output fails — you get a non-zero exit instead.
 
