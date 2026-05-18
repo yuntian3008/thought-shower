@@ -1,6 +1,6 @@
 # through-shower
 
-A Claude Code plugin that walks a feature branch from "I have an idea" to "ready to merge". Six stages, three slash commands, one shared review pattern. Reuses the `superpowers`, `codex`, and `send-slack-message` skills rather than reinventing them.
+A Claude Code plugin that walks a feature branch from "I have an idea" to "ready to merge". Six stages, three slash commands, one shared review pattern. Reuses the `superpowers` and `codex` skills rather than reinventing them.
 
 > Status: **v0.1.0 — early.** Untested end-to-end against a real PR; the design is solid but the first run will likely surface adjustments. PRs welcome.
 
@@ -30,7 +30,7 @@ git clone https://github.com/yuntian3008/through-shower.git ~/.claude/plugins/lo
 /reload-plugins
 ```
 
-After install, configure the optional Slack recipient (see [Configuration](#configuration) below) and verify dependencies are installed.
+After install, verify the required dependencies (see below) are installed.
 
 ## Required dependencies
 
@@ -40,19 +40,12 @@ The plugin runs a preflight check on every command and fails fast if any are mis
 | --- | --- | --- |
 | [`superpowers`](https://github.com/anthropic-experimental/superpowers) | `brainstorming`, `brainstorming-lite`, `finishing-a-development-branch`, `receiving-code-review` | `/plugin install superpowers` |
 | [`codex`](https://github.com/openai/codex) | `codex:codex-rescue` agent (Stage 3) | `/plugin install codex` |
-| `send-slack-message` (optional) | Stage 6 Slack ping | User-level skill — set up under `~/.claude/skills/send-slack-message/` only if you want Slack notifications |
 
 `gh` must be authenticated (`gh auth status`). CodeRabbit must be installed on the target repo — Stage 4 hard-requires it and will time out at 30 min if no review posts.
 
 ## Configuration
 
-When you enable the plugin, Claude Code prompts for these settings (you can change them later via `/plugin`):
-
-| Setting | Purpose | Default |
-| --- | --- | --- |
-| `slack_recipient` | Recipient key resolved by `send-slack-message`'s `recipients.md` (e.g., `"alice"`). Leave empty to disable the Stage 6 Slack ping option. | empty |
-
-If `slack_recipient` is empty, Stage 6 just announces ready-to-merge without offering the Slack ping path.
+No user settings to configure. The plugin is hands-off at Stage 6 — it prints a "ready to merge" summary and stops. Send notifications and merge on your own.
 
 ## Commands
 
@@ -73,7 +66,7 @@ If `slack_recipient` is empty, Stage 6 just announces ready-to-merge without off
 | 3. Codex turn | Dispatches `codex:codex-rescue` once → `review-turn` skill triages findings → user fixes → asks "re-run on new HEAD, or move to CR?". | `/ship` |
 | 4. CodeRabbit turn | **Parent:** base-flip + CR-existence polls (Monitor + bash). **Subagent (`coderabbit-shepherd`):** thread-resolution loop, `review-turn` per thread, GraphQL resolve mutation. Returns `{status: 'all_resolved' \| 'head_changed' \| 'failed'}`. | `/ship` + `coderabbit-shepherd` |
 | 5. Ready-to-merge | Verifies `state==OPEN`, `isDraft==false`, `baseRef==dev`, all checks green. | `/ship` |
-| 6. Merge handoff | If `slack_recipient` configured: asks `[Slack ping <recipient>] [End]`. Else: just announces ready-to-merge. Never auto-merges. | `/ship` |
+| 6. Merge handoff | Prints a "ready to merge" summary (title, URL, status) and stops. Never auto-merges. Notifications and merge are the user's responsibility. | `/ship` |
 
 ## The `review-turn` skill
 
@@ -94,7 +87,7 @@ Reused by both the Codex turn (Stage 3) and the CodeRabbit subagent (Stage 4).
 - Strict equality everywhere (`===` in TypeScript / `[ "$x" = "y" ]` in shell).
 - Codex runs once by default; re-run is an explicit prompt at end of turn.
 - CodeRabbit is hard-required at Stage 4; 30-min timeout if no review posts.
-- Stage 6 is opt-in: nothing is auto-merged or auto-pinged.
+- Stage 6 is hands-off: prints a summary and stops. Nothing is auto-merged. Notifications and merge are the user's responsibility.
 
 ## Layout
 

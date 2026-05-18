@@ -12,7 +12,7 @@ Before doing anything else, verify required dependencies are loaded. If ANY are 
 
 ```
 through-shower preflight failed. Missing: <list>
-Install: superpowers, codex (and ensure send-slack-message skill exists at ~/.claude/skills/send-slack-message)
+Install: superpowers, codex
 ```
 
 Required:
@@ -21,7 +21,6 @@ Required:
 - skill `superpowers:finishing-a-development-branch` (used later by /ship; checked early to fail fast)
 - skill `superpowers:receiving-code-review` (used by review-turn skill)
 - agent `codex:codex-rescue` (used later by /ship; checked early)
-- skill `send-slack-message` (used optionally by /ship Stage 6)
 
 `gh` must also be authenticated (`gh auth status`).
 

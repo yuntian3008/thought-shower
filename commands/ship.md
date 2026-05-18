@@ -13,7 +13,6 @@ Verify required dependencies are loaded. If ANY missing, stop and report (same m
 - skill `superpowers:finishing-a-development-branch`
 - skill `superpowers:receiving-code-review`
 - agent `codex:codex-rescue`
-- skill `send-slack-message` (only used at Stage 6, but check early)
 
 Also verify `gh auth status` succeeds.
 
@@ -180,47 +179,18 @@ If any condition fails, surface to the user with a recommended next action and s
 
 ## Stage 6 — Merge handoff
 
-Read the configured Slack recipient. Source: plugin `userConfig.slack_recipient`, exposed as the env var `CLAUDE_PLUGIN_OPTION_SLACK_RECIPIENT`. Empty means "no recipient configured".
-
-```bash
-RECIPIENT="${CLAUDE_PLUGIN_OPTION_SLACK_RECIPIENT:-}"
-```
-
-### If `RECIPIENT` is non-empty
-
-Ask the user:
+Print a short summary and stop:
 
 ```
 PR ready to merge.
-[1] Slack ping <RECIPIENT>
-[2] End (you'll merge yourself)
+  Title:  <gh pr view <number> --json title -q .title>
+  URL:    <gh pr view <number> --json url -q .url>
+  Status: CodeRabbit clean, all checks green.
+
+Merge when ready.
 ```
 
-If `1`:
-- Compose the message:
-  - Line 1: PR title verbatim (`gh pr view <number> --json title -q .title`).
-  - Line 2: first non-empty line of body (`gh pr view <number> --json body -q .body | sed -n '/./{p;q;}'`). Skip if body is empty.
-  - Line 3: PR URL.
-  - Line 4: `CodeRabbit clean, all checks green — ready to merge.`
-- Use the `Skill` tool to invoke `send-slack-message` with recipient `<RECIPIENT>` (the skill resolves it against its own `recipients.md`). If the recipient is not in `recipients.md`, the skill will fail with a clear error — surface it to the user.
-- Confirm send to user.
-
-If `2`: print `Pipeline complete. Merge when ready.` and stop.
-
-### If `RECIPIENT` is empty
-
-Just announce:
-
-```
-PR ready to merge. Merge when ready.
-(Configure `slack_recipient` in plugin settings to enable the Slack ping option.)
-```
-
-Then stop.
-
-### Always
-
-Do NOT merge the PR yourself. Ever.
+Do NOT merge the PR yourself. Ever. The plugin is hands-off at this stage — notification + merge is the user's call.
 
 ## Idempotency notes
 
@@ -228,4 +198,4 @@ Do NOT merge the PR yourself. Ever.
 - Stage 3 always runs at least once per /ship invocation. To skip Codex on a re-run, the user passes `--skip-codex` (TODO: not in v0.1).
 - Stage 4 re-runs base-flip + CR poll if base or HEAD changed; otherwise skips to subagent dispatch.
 - Stage 5 is pure read.
-- Stage 6 always asks; never auto-pings.
+- Stage 6 only prints the ready-to-merge summary; never auto-merges, never sends notifications.

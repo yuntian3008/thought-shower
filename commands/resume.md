@@ -39,6 +39,6 @@ Continue from this stage? [yes | no | run /status only]
 
 ### 4. Special cases
 
-- **Stage 6 detected** → don't auto-ping Mike. Instead say `PR is ready to merge. Run /through-shower:ship to get the merge handoff prompt.` (User shouldn't accidentally Slack Mike just because they typed /resume.)
+- **Stage 6 detected** → just report `PR is ready to merge. Run /through-shower:ship to see the merge-handoff summary.` /resume itself never prints the summary — it's only a stage detector.
 - **Codex stage uncertain** → /resume cannot detect Codex state. If the next-stage detection lands on "Stage 3 or later", explicitly tell the user: `Codex run state unknown — /ship will re-run codex:rescue. To skip, you must edit /ship.md (no flag for this in v0.1).`
 - **Stage detection fails** → print the failure and stop. Do not guess.

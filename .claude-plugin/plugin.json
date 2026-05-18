@@ -7,14 +7,5 @@
     "url": "https://github.com/yuntian3008"
   },
   "homepage": "https://github.com/yuntian3008/through-shower",
-  "repository": "https://github.com/yuntian3008/through-shower",
-  "userConfig": {
-    "slack_recipient": {
-      "type": "string",
-      "title": "Slack recipient (optional)",
-      "description": "Recipient key resolved by the send-slack-message skill's recipients.md (e.g., \"mike\"). Leave empty to disable the Stage 6 Slack ping option — Stage 6 will just announce ready-to-merge.",
-      "required": false,
-      "default": ""
-    }
-  }
+  "repository": "https://github.com/yuntian3008/through-shower"
 }
