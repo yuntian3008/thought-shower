@@ -53,7 +53,7 @@ No user settings to configure. The plugin is hands-off at Stage 6 — it prints 
 | --- | --- |
 | `/thought-shower:start [--lite] <description>` | Stage 1 only. Picks base branch, infers `<type>/<slug>`, creates the branch, invokes `superpowers:brainstorming` (or `brainstorming-lite` with `--lite`). |
 | `/thought-shower:ship` | Stages 2–6 from the current branch. Idempotent — safe to re-run after pushing fixes. |
-| `/thought-shower:auto <description>` (alias of `/thought-shower:thought-shower`) | Auto-chains `/start` then `/ship` in one session. For trivially small features only. The `auto` name sorts first alphabetically in the picker. Implemented as a symlink — **Windows users** must clone with `core.symlinks=true` (requires Developer Mode or admin) or this command will be broken. |
+| `/thought-shower:thought-shower <description>` | Auto-chains `/start` then `/ship` in one session. For trivially small features only. |
 | `/thought-shower:status` | Read-only state report: branch, PR, draft state, CR review state, threads, checks. Infers the next stage. |
 | `/thought-shower:resume` | Detects current stage from git + GitHub, prints it, asks "continue?". |
 
@@ -68,15 +68,9 @@ No user settings to configure. The plugin is hands-off at Stage 6 — it prints 
 | 5. Ready-to-merge | Verifies `state==OPEN`, `isDraft==false`, `baseRef==dev`, all checks green. | `/ship` |
 | 6. Merge handoff | Prints a "ready to merge" summary (title, URL, status) and stops. Never auto-merges. Notifications and merge are the user's responsibility. | `/ship` |
 
-## The `visualize-as-html` skill
+## Skills
 
-A general-purpose viz skill bundled with the plugin. Auto-invokes when the user asks to *visualize*, *compare*, *present*, *dashboard*, *sketch*, or *walk through* something that would be richer as a rendered page than as markdown. Produces a single self-contained `.html` file in `/tmp`, opens it in the default browser.
-
-Patterns are pulled from [ThariqS/html-effectiveness](https://github.com/ThariqS/html-effectiveness) — 20 curated artifact types (status reports, incident timelines, flowcharts, implementation plans, comparison sheets, etc.). The skill picks the closest pattern, optionally fetches the upstream example for structural reference, then generates a self-contained file (inline CSS + JS + SVG, no CDN, no trackers, system fonts only, dark-mode honest).
-
-Independent of the `/start` → `/ship` pipeline — use it any time. Example asks: *"Visualize the deploy pipeline as a flowchart"*, *"Draft a Monday status update for this branch"*, *"Compare these three caching strategies side-by-side"*.
-
-## The `review-turn` skill
+### `review-turn`
 
 The plugin's core abstraction. Auto-invokes whenever any reviewer (Codex, CodeRabbit, manual) returns feedback. Wraps `superpowers:receiving-code-review` to enforce:
 
@@ -86,6 +80,14 @@ The plugin's core abstraction. Auto-invokes whenever any reviewer (Codex, CodeRa
 - Present grouped by severity, collect user decisions, return them to the caller.
 
 Reused by both the Codex turn (Stage 3) and the CodeRabbit subagent (Stage 4).
+
+### `visualize-as-html`
+
+General-purpose viz skill. Auto-invokes when the user asks to *visualize*, *compare*, *present*, *dashboard*, *sketch*, or *walk through* something that would be richer as a rendered page than as markdown. Produces a single self-contained `.html` file in `/tmp`, opens it in the default browser.
+
+Patterns come from [ThariqS/html-effectiveness](https://github.com/ThariqS/html-effectiveness) — 20 curated artifact types (status reports, incident timelines, flowcharts, implementation plans, comparison sheets, etc.). The skill picks the closest pattern, optionally fetches the upstream example for structural reference, then generates a self-contained file (inline CSS + JS + SVG, no CDN, no trackers, system fonts only, dark-mode honest).
+
+Independent of the `/start` → `/ship` pipeline — use it any time. Example asks: *"Visualize the deploy pipeline as a flowchart"*, *"Draft a Monday status update for this branch"*, *"Compare these three caching strategies side-by-side"*.
 
 ## Conventions baked in
 
@@ -103,7 +105,7 @@ Reused by both the Codex turn (Stage 3) and the CodeRabbit subagent (Stage 4).
 thought-shower/
 ├── .claude-plugin/plugin.json
 ├── README.md
-├── commands/{auto,start,ship,thought-shower,status,resume}.md
+├── commands/{start,ship,thought-shower,status,resume}.md
 ├── skills/review-turn/SKILL.md
 ├── skills/visualize-as-html/{SKILL.md, references/{patterns.md, template.html}}
 ├── agents/coderabbit-shepherd.md
