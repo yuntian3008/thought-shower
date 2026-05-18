@@ -178,18 +178,25 @@ esac
 
 ### 4d. CR-status timed poll (hard 30-min cap)
 
-Run `"${CLAUDE_PLUGIN_ROOT}/scripts/cr-fresh-review.sh" <PR_NUMBER> <HEAD_OID>` in a background shell. Track the shell ID. (Always wrap `${CLAUDE_PLUGIN_ROOT}` in double quotes — the path may contain spaces.)
+Run the poll script as Monitor's command (no separate background Bash):
 
-The script polls the commit-status endpoint until CR's status transitions to `success` (any description — `Review completed`, `Review skipped`) or `failure`, or until 30 min elapses.
+```
+Monitor(
+  command='"${CLAUDE_PLUGIN_ROOT}/scripts/cr-fresh-review.sh" <PR_NUMBER> <HEAD_OID>',
+  description='CR review on PR #<PR_NUMBER> HEAD <HEAD_OID_SHORT>',
+  timeout_ms=1900000,
+  persistent=false
+)
+```
 
-It writes one of these on its last line: `CR_REVIEW_POSTED`, `CR_REVIEW_FAILED`, `CR_TIMEOUT`, or `FILTER_BROKEN`.
+`timeout_ms` sits just above the script's internal 30-min deadline so its own `CR_TIMEOUT` line lands on stdout first. Wrap `${CLAUDE_PLUGIN_ROOT}` in double quotes — path may contain spaces.
 
-Use `Monitor` on the shell, pattern `CR_REVIEW_POSTED|CR_REVIEW_FAILED|CR_TIMEOUT|FILTER_BROKEN`.
+The Monitor event will contain one of:
 
-- `CR_REVIEW_POSTED` → `KillShell`, proceed to 4e.
-- `CR_REVIEW_FAILED` → stop. Report the description (e.g., `CR reported failure: <description>`).
-- `CR_TIMEOUT` → stop. Report: `CodeRabbit did not post a status within 30 min — verify the CodeRabbit GitHub App is installed and active on this repo. CR is hard-required at Stage 4.`
-- `FILTER_BROKEN` → stop. Report stderr from the script. See `references/pitfalls.md`.
+- `CR_REVIEW_POSTED` → proceed to 4e.
+- `CR_REVIEW_FAILED: <description>` → stop, report.
+- `CR_TIMEOUT` → stop. Report: `CodeRabbit did not post a status within 30 min — verify the CodeRabbit GitHub App is installed and active on this repo.`
+- `FILTER_BROKEN: ...` → stop. Re-run the script in foreground for the error text. See `references/pitfalls.md`.
 
 ### 4e. Dispatch coderabbit-shepherd subagent
 

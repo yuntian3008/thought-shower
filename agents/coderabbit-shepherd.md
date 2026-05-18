@@ -175,16 +175,18 @@ mutation($threadId:ID!){
 
 If `pendingFixes` is non-empty after walking all threads:
 - Tell the user: `<N> threads await fixes. Push commits, then I'll re-check.`
-- Start a background bash watching `gh pr view --json headRefOid -q .headRefOid` every 60s. **Track the shell ID.**
-  ```bash
-  while true; do
-    cur=$(gh pr view <PR> --json headRefOid -q .headRefOid)
-    echo "[$(date -u +%H:%M:%SZ)] head=$cur"
-    [ "$cur" != "<STARTING_HEAD>" ] && echo "HEAD_CHANGED:$cur" && break
-    sleep 60
-  done
+- Run the head-watch loop as Monitor's command. Progress goes to stderr; only `HEAD_CHANGED:<sha>` reaches stdout:
+
   ```
-- `Monitor` for `HEAD_CHANGED:`. When fired, `KillShell`, return `head_changed` with the new SHA.
+  Monitor(
+    command='STARTING_HEAD=<STARTING_HEAD>; while true; do cur=$(gh pr view <PR> --json headRefOid -q .headRefOid); echo "[$(date -u +%H:%M:%SZ)] head=$cur" >&2; if [ "$cur" != "$STARTING_HEAD" ]; then echo "HEAD_CHANGED:$cur"; break; fi; sleep 60; done',
+    description='head watch on PR #<PR>',
+    timeout_ms=3600000,
+    persistent=false
+  )
+  ```
+
+  On `HEAD_CHANGED:<sha>` event, return `head_changed` with the new SHA.
 
 If `pendingFixes` is empty and all threads are resolved → Stage E.
 
@@ -194,12 +196,13 @@ Re-run `cr-threads.sh` one more time and filter for `isResolved == false` only. 
 
 ### Stage Cleanup (ALWAYS, before any return)
 
-1. List every background shell ID started this dispatch (Stage D5 head-watch, any 2-min auto-resolve waits in D3).
-2. Call `KillShell` on each.
-3. Use `BashOutput` to confirm each terminated.
-4. Only then emit the final structured-return message.
+For every `Bash(run_in_background)` shell started this dispatch (only the D3 auto-resolve sleeps qualify — D5 uses Monitor and self-cleans):
 
-If a shell will not terminate, include `WARNING: shell <id> still running` in the return message.
+1. `KillShell` each shell ID.
+2. `BashOutput` to confirm termination.
+3. Then emit the final structured-return message.
+
+If a shell will not terminate, include `WARNING: shell <id> still running` in the return.
 
 ## Operating rules
 

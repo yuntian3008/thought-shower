@@ -106,7 +106,19 @@ Rule of thumb: when the jq filter is in a **double-quoted** bash string (because
 
 The single-quoted form is safer when possible; reach for double-quoted only when you actually need variable expansion in the filter.
 
-## 12. `gh pr view` with no PR returns non-zero, not empty
+## 12. For agent-owned polling, run the script as Monitor's command
+
+Don't pair `Bash(run_in_background)` with `Monitor(tail -f file | grep)`. Just give Monitor the script:
+
+```
+Monitor(command='"${CLAUDE_PLUGIN_ROOT}/scripts/cr-fresh-review.sh" 488 <sha>', ...)
+```
+
+Script must print **only** terminal lines (`CR_REVIEW_POSTED`, `HEAD_CHANGED:<sha>`, …) to stdout; send progress chatter to stderr. Set `timeout_ms` slightly above the script's internal deadline so its own `*_TIMEOUT` line reaches stdout first. No `KillShell`, no output file, no init check.
+
+Use the two-process pattern only to watch a log file someone *else* writes (test runner, server).
+
+## 13. `gh pr view` with no PR returns non-zero, not empty
 
 **Symptom:** trying to detect "no PR exists" by checking for empty output fails — you get a non-zero exit instead.
 

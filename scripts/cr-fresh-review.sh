@@ -62,10 +62,13 @@ while [ "$(date -u +%s)" -lt "$DEADLINE" ]; do
   state="${raw%%|*}"
   desc="${raw#*|}"
 
+  # Progress lines go to stderr so they do NOT trigger Monitor notifications.
+  # Only terminal lines (CR_REVIEW_POSTED / CR_REVIEW_FAILED / CR_TIMEOUT / FILTER_BROKEN)
+  # are emitted on stdout — exactly one notification per script run.
   if [ "$state" = "<none>" ]; then
-    echo "[$(date -u +%H:%M:%SZ)] cr_status=<none> (waiting for webhook)"
+    echo "[$(date -u +%H:%M:%SZ)] cr_status=<none> (waiting for webhook)" >&2
   else
-    echo "[$(date -u +%H:%M:%SZ)] cr_status=$state ($desc)"
+    echo "[$(date -u +%H:%M:%SZ)] cr_status=$state ($desc)" >&2
   fi
 
   case "$state" in
