@@ -115,36 +115,39 @@ Read current `baseRefName`. If not `dev`:
 ```bash
 HEAD_OID=$(gh pr view <number> --json headRefOid -q .headRefOid)
 isDraft=$(gh pr view <number> --json isDraft -q .isDraft)
-[ "$isDraft" = "true" ] && JUST_MARKED_READY=1 && gh pr ready <number>
+[ "$isDraft" = "true" ] && gh pr ready <number>
 ```
 
-### 4c. Existing-review short-circuit
+### 4c. Existing-status short-circuit
 
-Before starting a timed poll, check whether CodeRabbit has **already** reviewed the current HEAD. If yes, skip the poll — the review exists; no new one is coming.
+Before starting a timed poll, check whether CodeRabbit has **already** weighed in on the current HEAD via its GitHub commit status (context `"CodeRabbit"`). The combined-status endpoint returns the latest status per context — keyed on the commit SHA, so no time gating is needed.
 
 ```bash
 OWNER_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-existing=$(gh api "repos/$OWNER_REPO/pulls/<PR_NUMBER>/reviews" \
-  --jq "[ .[] | select(((.user.login // \"\") | test(\"^coderabbitai(\\\\[bot\\\\])?\\$\"; \"i\")) and .commit_id == \"$HEAD_OID\") ] | length")
-case "$existing" in
-  ''|*[!0-9]*) echo "FILTER_BROKEN: $existing" >&2; exit 1 ;;
+cr_state=$(gh api "repos/$OWNER_REPO/commits/$HEAD_OID/status" \
+  --jq '(.statuses // []) | map(select(.context == "CodeRabbit")) | (first // null) | (.state // "<none>")')
+case "$cr_state" in
+  ''|*[!a-z\<\>]*) echo "FILTER_BROKEN: $cr_state" >&2; exit 1 ;;
 esac
 ```
 
-- If `existing > 0` → CR already reviewed this HEAD. Skip the poll, proceed to 4e.
-- If `existing == 0` AND `JUST_MARKED_READY` was set OR HEAD changed since last loop iteration → set `READY_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)` and run the timed poll below.
-- If `existing == 0` AND no `JUST_MARKED_READY` AND HEAD is unchanged → unusual case (review was deleted? PR re-opened?). Set `READY_AT` to now and run the timed poll.
+- `cr_state == "success"` → CR has already finished on this HEAD. Skip the poll, proceed to 4e.
+- `cr_state == "failure"` → CR reported a failure on this HEAD. Surface and stop (see 4d failure handling).
+- `cr_state == "pending"` or `cr_state == "<none>"` → fall through to 4d's timed poll. (`<none>` is normal in the seconds right after pushing — webhook hasn't fired yet.)
 
-### 4d. CR-existence timed poll (hard 30-min cap)
+### 4d. CR-status timed poll (hard 30-min cap)
 
-Run `"${CLAUDE_PLUGIN_ROOT}/scripts/cr-fresh-review.sh" <PR_NUMBER> <HEAD_OID> <READY_AT>` in a background shell. Track the shell ID. (Always wrap `${CLAUDE_PLUGIN_ROOT}` in double quotes — the path may contain spaces.)
+Run `"${CLAUDE_PLUGIN_ROOT}/scripts/cr-fresh-review.sh" <PR_NUMBER> <HEAD_OID>` in a background shell. Track the shell ID. (Always wrap `${CLAUDE_PLUGIN_ROOT}` in double quotes — the path may contain spaces.)
 
-The script writes `CR_REVIEW_POSTED`, `CR_TIMEOUT`, or `FILTER_BROKEN` on its last line.
+The script polls the commit-status endpoint until CR's status transitions to `success` (any description — `Review completed`, `Review skipped`) or `failure`, or until 30 min elapses.
 
-Use `Monitor` on the shell, pattern `CR_REVIEW_POSTED|CR_TIMEOUT|FILTER_BROKEN`.
+It writes one of these on its last line: `CR_REVIEW_POSTED`, `CR_REVIEW_FAILED`, `CR_TIMEOUT`, or `FILTER_BROKEN`.
+
+Use `Monitor` on the shell, pattern `CR_REVIEW_POSTED|CR_REVIEW_FAILED|CR_TIMEOUT|FILTER_BROKEN`.
 
 - `CR_REVIEW_POSTED` → `KillShell`, proceed to 4e.
-- `CR_TIMEOUT` → stop the whole pipeline. Report: `CodeRabbit did not post a review within 30 min — verify the CodeRabbit GitHub App is installed on this repo. CR is hard-required at Stage 4.`
+- `CR_REVIEW_FAILED` → stop. Report the description (e.g., `CR reported failure: <description>`).
+- `CR_TIMEOUT` → stop. Report: `CodeRabbit did not post a status within 30 min — verify the CodeRabbit GitHub App is installed and active on this repo. CR is hard-required at Stage 4.`
 - `FILTER_BROKEN` → stop. Report stderr from the script. See `references/pitfalls.md`.
 
 ### 4e. Dispatch coderabbit-shepherd subagent
@@ -155,7 +158,7 @@ Use the `Agent` tool:
 
 The subagent returns one of:
 - `{status: "all_resolved"}` → proceed to Stage 5.
-- `{status: "head_changed", newOid: "<sha>"}` → user pushed new commits. Set `HEAD_OID=<newOid>`, clear `JUST_MARKED_READY`, return to 4c (re-check existing review first, then poll if needed).
+- `{status: "head_changed", newOid: "<sha>"}` → user pushed new commits. Set `HEAD_OID=<newOid>`, return to 4c (re-check status short-circuit first, then poll if needed).
 - `{status: "failed", reason: "<text>"}` → surface to user, stop.
 
 ## Stage 5 — Ready-to-merge gate

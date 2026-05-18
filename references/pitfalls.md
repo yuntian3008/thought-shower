@@ -71,7 +71,23 @@ The GraphQL query in `cr-threads.sh` paginates threads (100 per page) but curren
 
 If this becomes a real problem, add a second-tier pagination loop on `comments` inside the script.
 
-## 10. `gh pr view` with no PR returns non-zero, not empty
+## 10. Use CodeRabbit's commit status, not reviews+comments
+
+**Symptom (historical):** poll script reports `fresh=0` forever even after CR finishes; user sees a top-level PR comment "No actionable comments were generated in the recent review. 🎉" but our poll never trips.
+
+**Root cause:** the `/pulls/<n>/reviews` endpoint only returns formal review objects. CR's clean-pass response is sometimes posted as an `issue_comment` (top-level PR comment) with NO entry in the reviews list. Filtering reviews by `commit_id == HEAD` will miss it forever.
+
+**Fix (current behavior):** poll the **commit-status** endpoint instead. CR registers a GitHub commit status with `context: "CodeRabbit"` that transitions:
+- `state=pending`, `description="Review in progress"` — review started
+- `state=success`, `description="Review completed"` — done with findings
+- `state=success`, `description="Review skipped"` — CR opted out (e.g., base ≠ dev, no diff)
+- `state=failure`, `description=<error>` — CR errored
+
+The combined-status endpoint (`/commits/<sha>/status`) returns the latest status per context, keyed on commit SHA — no timestamp gating needed. The script `scripts/cr-fresh-review.sh` uses this approach.
+
+This is dramatically simpler than the reviews+comments approach: one API call, native HEAD anchoring, handles clean-pass and skipped cases automatically.
+
+## 11. `gh pr view` with no PR returns non-zero, not empty
 
 **Symptom:** trying to detect "no PR exists" by checking for empty output fails — you get a non-zero exit instead.
 
