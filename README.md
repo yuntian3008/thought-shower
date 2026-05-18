@@ -1,17 +1,21 @@
 # thought-shower
 
-A Claude Code plugin that walks a feature branch from "I have an idea" to "ready to merge". Six stages, three slash commands, one shared review pattern. Reuses the `superpowers` and `codex` skills rather than reinventing them.
+A personal Claude Code plugin — commands, pipelines, and skills bundled together as one software engineer's workflow. The first piece is a 6-stage shipping pipeline that walks a feature branch from "I have an idea" to "ready to merge". More workflow pieces (commands, skills, pipelines) will land as the workflow evolves.
 
-> Status: **v0.1.0 — early.** Untested end-to-end against a real PR; the design is solid but the first run will likely surface adjustments. PRs welcome.
+> Status: **v0.1.0 — early.** The shipping pipeline is designed end-to-end but not yet battle-tested. Expect rough edges on first run, and expect new pieces to arrive over time. Issues and PRs welcome.
 
-## What it does
+## What's in the box today
+
+- **Shipping pipeline** (`/start` + `/ship`) — six stages from blank branch to ready-to-merge. Detailed below.
+- **`review-turn` skill** — shared review-feedback discipline used by every reviewer turn.
+- **`visualize-as-html` skill** — produce a self-contained HTML artifact when a rendered page beats markdown.
 
 ```
 1. Branch setup     2. Finishing          3. Codex review
 4. CodeRabbit       5. Ready-to-merge     6. Merge handoff
 ```
 
-Each stage has a clear exit condition. The plugin holds your hand only where the discipline matters (no performative agreement on review feedback, verify-before-claim on every check) and gets out of the way otherwise.
+Each pipeline stage has a clear exit condition. The plugin holds your hand only where discipline matters (no performative agreement on review feedback, verify-before-claim on every check) and gets out of the way otherwise.
 
 ## Install
 
@@ -57,7 +61,9 @@ No user settings to configure. The plugin is hands-off at Stage 6 — it prints 
 | `/thought-shower:status` | Read-only state report: branch, PR, draft state, CR review state, threads, checks. Infers the next stage. |
 | `/thought-shower:resume` | Detects current stage from git + GitHub, prints it, asks "continue?". |
 
-## Pipeline
+## Shipping pipeline
+
+The current centerpiece. Future versions may add other pipelines for other workflows.
 
 | Stage | What happens | Owner |
 | --- | --- | --- |
@@ -126,13 +132,14 @@ The `coderabbit-shepherd` agent reads `references/pitfalls.md` on demand. Highli
 
 ## Why "thought-shower"?
 
-A play on "PR shepherd" — but the agent washes the PR through a pipeline rather than herding it. Also disambiguates from any other `pr-shepherd` in your `~/.claude/agents/`.
+British idiom for a brainstorm — the kind that washes ideas onto the page. The plugin started as a PR-shipping pipeline; the name now covers the broader personal-workflow toolkit built around it.
 
 ## Status & roadmap
 
-v0.1.0 ships the design end-to-end but has not been battle-tested. Likely v0.2 work:
+v0.1.0 bundles the shipping pipeline and two skills. Likely directions for future versions:
 
-- Verified first-run report on a real PR.
+- More software-engineering workflow pieces (commands, pipelines, skills) added as the personal workflow evolves.
+- First-run verification of the shipping pipeline against a real PR.
 - Optional `--skip-codex` flag on `/ship` for trivial PRs.
 - Optional alternative reviewers (e.g., Gemini, internal LLM reviewers) plug into the `review-turn` skill.
 - Pagination for inner comments inside CR threads (rare edge case, see `references/pitfalls.md` #9).
