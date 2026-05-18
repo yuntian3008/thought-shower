@@ -7,5 +7,9 @@
     "url": "https://github.com/yuntian3008"
   },
   "homepage": "https://github.com/yuntian3008/thought-shower",
-  "repository": "https://github.com/yuntian3008/thought-shower"
+  "repository": "https://github.com/yuntian3008/thought-shower",
+  "dependencies": [
+    { "name": "superpowers", "marketplace": "claude-plugins-official" },
+    { "name": "codex", "marketplace": "openai-codex" }
+  ]
 }
