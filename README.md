@@ -53,7 +53,7 @@ No user settings to configure. The plugin is hands-off at Stage 6 — it prints 
 | --- | --- |
 | `/through-shower:start [--lite] <description>` | Stage 1 only. Picks base branch, infers `<type>/<slug>`, creates the branch, invokes `superpowers:brainstorming` (or `brainstorming-lite` with `--lite`). |
 | `/through-shower:ship` | Stages 2–6 from the current branch. Idempotent — safe to re-run after pushing fixes. |
-| `/through-shower:through-shower <description>` (alias: `/through-shower:go`) | Auto-chains `/start` then `/ship` in one session. For trivially small features only. The `go` alias is shorter and resolves after a single keystroke in the picker. |
+| `/through-shower:through-shower <description>` | Auto-chains `/start` then `/ship` in one session. For trivially small features only. |
 | `/through-shower:status` | Read-only state report: branch, PR, draft state, CR review state, threads, checks. Infers the next stage. |
 | `/through-shower:resume` | Detects current stage from git + GitHub, prints it, asks "continue?". |
 
@@ -95,7 +95,7 @@ Reused by both the Codex turn (Stage 3) and the CodeRabbit subagent (Stage 4).
 through-shower/
 ├── .claude-plugin/plugin.json
 ├── README.md
-├── commands/{start,ship,through-shower,go,status,resume}.md
+├── commands/{start,ship,through-shower,status,resume}.md
 ├── skills/review-turn/SKILL.md
 ├── agents/coderabbit-shepherd.md
 ├── scripts/{cr-fresh-review,cr-threads}.sh
