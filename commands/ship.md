@@ -81,7 +81,49 @@ PR_NUMBER=$(gh pr view --json number -q .number)
    ```
 
    - `re-run`: capture new HEAD, dispatch `codex:codex-rescue` again, repeat steps 3–6.
-   - `move-on`: proceed to Stage 4.
+   - `move-on`: proceed to step 7.
+
+7. **Post the Codex-turn summary comment on the PR.** Hands-on paper trail for CodeRabbit and human reviewers so they can see what Codex flagged and how it was handled.
+
+   Compose the body using data from the FINAL round only (re-runs supersede earlier rounds). Use the HTML marker so the comment is identifiable later:
+
+   ```
+   <!-- through-shower:codex-turn -->
+
+   ## 🤖 Codex review turn
+
+   Reviewed against base `<RECORDED_BASE>` at `<HEAD_AT_CODEX_START_SHORT>` → final HEAD `<CURRENT_HEAD_SHORT>`.
+
+   **Findings: <N> actionable**
+
+   | File:Line | Severity | Decision | Note |
+   | --- | --- | --- | --- |
+   | src/foo.ts:42 | high | fix | Fixed in `<sha-short>` |
+   | src/bar.ts:10 | medium | decline | `<user's short reason>` |
+   | ... | ... | ... | ... |
+
+   **Commits pushed during this turn:** `<sha-short>`, `<sha-short>` (if any)
+
+   ---
+   *Posted by [through-shower](https://github.com/yuntian3008/through-shower).*
+   ```
+
+   Rules:
+   - If the final round had **0 findings**, post a one-liner: `Codex reviewed `<sha-short>` — no actionable findings.` (still with the HTML marker)
+   - The `<sha-short>` values use `git rev-parse --short=8 <sha>` so they're stable links.
+   - Commits-pushed list = `git log --format='%h' <HEAD_AT_CODEX_START>..<CURRENT_HEAD>`.
+   - If a Codex-turn comment with the `<!-- through-shower:codex-turn -->` marker already exists on this PR (e.g., user re-ran /ship), **update it** with the new body instead of posting a duplicate:
+     ```bash
+     existing=$(gh api "repos/$OWNER_REPO/issues/$PR_NUMBER/comments" \
+       --jq '[ .[] | select(.body | startswith("<!-- through-shower:codex-turn -->")) ][0].id // empty')
+     if [ -n "$existing" ]; then
+       gh api -X PATCH "repos/$OWNER_REPO/issues/comments/$existing" -f body="$BODY"
+     else
+       gh pr comment "$PR_NUMBER" --body "$BODY"
+     fi
+     ```
+
+8. Proceed to Stage 4.
 
 ## Stage 4 — CodeRabbit turn (hybrid)
 

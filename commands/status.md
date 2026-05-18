@@ -57,7 +57,7 @@ PR:            #486 (OPEN, ready)  https://github.com/...
 Base:          dev
 HEAD:          ed562b12
 
-Codex:         unknown (no GitHub artifact — re-run /ship to be safe)
+Codex:         done (summary comment posted)  |  unknown (no comment found)
 CodeRabbit:    review posted on current HEAD
   Threads:     3 unresolved
 Checks:        4 PASS, 0 FAIL, 0 PENDING
@@ -78,7 +78,14 @@ Inferred next stage: Stage 4 — resolve CR threads (run /through-shower:ship)
 | All clear | Stage 6 (merge handoff) |
 | Stage detection fails (e.g., gh not authenticated) | Report the failure literally; do not guess |
 
-**Codex caveat:** Codex leaves no GitHub artifact, so `/status` cannot tell whether Codex was already run on the current HEAD. The report says `unknown` and recommends re-running `/ship` (Stage 3 is fast and idempotent enough to repeat).
+**Codex detection.** Look for a PR comment whose body starts with the marker `<!-- through-shower:codex-turn -->`:
+
+```bash
+gh api "repos/$OWNER_REPO/issues/$PR_NUMBER/comments" \
+  --jq '[ .[] | select(.body | startswith("<!-- through-shower:codex-turn -->")) ] | length'
+```
+
+If `> 0` → Codex turn done. If `0` → unknown (Codex either hasn't run, or ran but the comment wasn't posted). Report says `unknown` and recommends re-running `/ship` (Stage 3 is fast and idempotent — the comment posting will update in place if it already exists).
 
 ## Failure modes
 
