@@ -28,19 +28,16 @@ gh pr checks $(gh pr view --json number -q .number) 2>/dev/null
 
 ### CodeRabbit state (if PR exists)
 
-CR state is read from the **commit-status endpoint** (same source as Stage 4d's poll). See `references/pitfalls.md` #10 for why the older reviews+commit_id filter misses CR's clean-pass and skipped responses.
-
 ```bash
 PR_NUMBER=<from above>
 HEAD_OID=<from above>
 OWNER_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 
-# CR commit status on current HEAD. Possible values:
-#   success | failure | pending | <none>
+# CR commit status: success | failure | pending | <none>
 gh api "repos/$OWNER_REPO/commits/$HEAD_OID/status" \
   --jq '(.statuses // []) | map(select(.context == "CodeRabbit")) | (first // null) | (.state // "<none>")'
 
-# Unresolved CR threads (use scripts/cr-threads.sh)
+# Unresolved CR threads
 "${CLAUDE_PLUGIN_ROOT}/scripts/cr-threads.sh" $PR_NUMBER \
   | jq '[ .[] | select(.isResolved == false) ] | length'
 ```

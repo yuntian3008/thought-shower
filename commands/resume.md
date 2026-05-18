@@ -10,7 +10,7 @@ Detect → print → ask "continue?".
 
 ### 1. Run /status logic
 
-Reuse the detection from `/thought-shower:status` (don't duplicate the logic — actually invoke that command's body or re-run its checks). Capture the inferred next stage.
+Invoke the body of `/thought-shower:status`. Capture the inferred next stage.
 
 ### 2. Print and ask
 
@@ -39,6 +39,6 @@ Continue from this stage? [yes | no | run /status only]
 
 ### 4. Special cases
 
-- **Stage 6 detected** → just report `PR is ready to merge. Run /thought-shower:ship to see the merge-handoff summary.` /resume itself never prints the summary — it's only a stage detector.
-- **Codex stage uncertain** → /resume cannot detect Codex state. If the next-stage detection lands on "Stage 3 or later", explicitly tell the user: `Codex run state unknown — /ship will re-run codex:rescue. To skip, you must edit /ship.md (no flag for this in v0.1).`
-- **Stage detection fails** → print the failure and stop. Do not guess.
+- **Stage 6 detected** → report `PR is ready to merge. Run /thought-shower:ship for the handoff summary.`
+- **Codex stage uncertain** → if next-stage is "Stage 3 or later", tell the user: `Codex run state unknown — /ship will re-run codex:rescue.`
+- **Stage detection fails** → print the failure and stop.

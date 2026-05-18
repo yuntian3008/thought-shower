@@ -51,7 +51,6 @@ query($owner:String!,$repo:String!,$number:Int!,$threadsCursor:String){
               path
               line
               originalLine
-              diffSide
               url
               body
               createdAt

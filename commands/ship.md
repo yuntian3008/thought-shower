@@ -1,5 +1,5 @@
 ---
-description: Stages 2–6 of thought-shower. From a branch with committed code, run finishing → Codex review → CodeRabbit review → ready-to-merge → ask user to ping Mike or end. Idempotent — safe to re-run.
+description: Stages 2–6 of thought-shower. From a branch with committed code, run finishing → Codex review → CodeRabbit review → ready-to-merge → handoff. Idempotent — safe to re-run.
 ---
 
 # /thought-shower:ship
@@ -83,9 +83,7 @@ PR_NUMBER=$(gh pr view --json number -q .number)
    - `re-run`: capture new HEAD, dispatch `codex:codex-rescue` again, repeat steps 3–6.
    - `move-on`: proceed to step 7.
 
-7. **Post the Codex-turn summary comment on the PR.** Hands-on paper trail for CodeRabbit and human reviewers so they can see what Codex flagged and how it was handled.
-
-   Compose the body using data from the FINAL round only (re-runs supersede earlier rounds). Use the HTML marker so the comment is identifiable later:
+7. **Post the Codex-turn summary comment on the PR.** Use the HTML marker so the comment is identifiable on re-runs. Compose the body from the FINAL round only (re-runs supersede earlier rounds):
 
    ```
    <!-- thought-shower:codex-turn -->
@@ -161,7 +159,7 @@ isDraft=$(gh pr view <number> --json isDraft -q .isDraft)
 
 ### 4c. Existing-status short-circuit
 
-Before starting a timed poll, check whether CodeRabbit has **already** weighed in on the current HEAD via its GitHub commit status (context `"CodeRabbit"`). The combined-status endpoint returns the latest status per context — keyed on the commit SHA, so no time gating is needed.
+Check CR's commit status on the current HEAD before starting any poll:
 
 ```bash
 OWNER_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
@@ -172,9 +170,9 @@ case "$cr_state" in
 esac
 ```
 
-- `cr_state == "success"` → CR has already finished on this HEAD. Skip the poll, proceed to 4e.
-- `cr_state == "failure"` → CR reported a failure on this HEAD. Surface and stop (see 4d failure handling).
-- `cr_state == "pending"` or `cr_state == "<none>"` → fall through to 4d's timed poll. (`<none>` is normal in the seconds right after pushing — webhook hasn't fired yet.)
+- `success` → skip the poll, proceed to 4e.
+- `failure` → surface and stop (see 4d failure handling).
+- `pending` or `<none>` → fall through to 4d's timed poll.
 
 ### 4d. CR-status timed poll (hard 30-min cap)
 
@@ -244,7 +242,7 @@ Do NOT merge the PR yourself. Ever. The plugin is hands-off at this stage — no
 ## Idempotency notes
 
 - Stage 2 is a no-op if the draft PR already exists.
-- Stage 3 always runs at least once per /ship invocation. To skip Codex on a re-run, the user passes `--skip-codex` (TODO: not in v0.1).
+- Stage 3 always runs at least once per /ship invocation.
 - Stage 4 re-runs base-flip + CR poll if base or HEAD changed; otherwise skips to subagent dispatch.
 - Stage 5 is pure read.
-- Stage 6 only prints the ready-to-merge summary; never auto-merges, never sends notifications.
+- Stage 6 only prints the ready-to-merge summary.

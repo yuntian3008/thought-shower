@@ -17,10 +17,10 @@ Install: superpowers, codex
 
 Required:
 - skill `superpowers:brainstorming`
-- skill `superpowers:brainstorming-lite` (only if `--lite` flag was passed)
-- skill `superpowers:finishing-a-development-branch` (used later by /ship; checked early to fail fast)
-- skill `superpowers:receiving-code-review` (used by review-turn skill)
-- agent `codex:codex-rescue` (used later by /ship; checked early)
+- skill `superpowers:brainstorming-lite` (only if `--lite`)
+- skill `superpowers:finishing-a-development-branch`
+- skill `superpowers:receiving-code-review`
+- agent `codex:codex-rescue`
 
 `gh` must also be authenticated (`gh auth status`).
 
@@ -110,9 +110,7 @@ If the branch name is already taken, append a numeric suffix (`-2`, `-3`, …) a
 
 Record in conversation context (do NOT write to memory):
 - `RECORDED_BASE = $BASE` (or detected upstream for the mid-flow case)
-- `FEATURE_BRANCH = <branch>` (current branch)
-
-These are used by `/ship` later. If the user runs `/ship` in a different session, `/ship` re-derives them from `git`.
+- `FEATURE_BRANCH = <branch>`
 
 ### 7. Invoke brainstorming
 
@@ -120,9 +118,7 @@ Use the `Skill` tool:
 - If `LITE=1`: invoke `superpowers:brainstorming-lite`.
 - Else: invoke `superpowers:brainstorming`.
 
-Pass `<description>` as the topic.
-
-When brainstorming + execution finishes and code is on the branch, the user runs `/thought-shower:ship`. Do not auto-chain — `/ship` is a separate command.
+Pass `<description>` as the topic. Do not auto-chain into `/ship` — that's a separate command.
 
 ## On completion
 
