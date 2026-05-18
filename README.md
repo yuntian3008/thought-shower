@@ -68,6 +68,14 @@ No user settings to configure. The plugin is hands-off at Stage 6 — it prints 
 | 5. Ready-to-merge | Verifies `state==OPEN`, `isDraft==false`, `baseRef==dev`, all checks green. | `/ship` |
 | 6. Merge handoff | Prints a "ready to merge" summary (title, URL, status) and stops. Never auto-merges. Notifications and merge are the user's responsibility. | `/ship` |
 
+## The `visualize-as-html` skill
+
+A general-purpose viz skill bundled with the plugin. Auto-invokes when the user asks to *visualize*, *compare*, *present*, *dashboard*, *sketch*, or *walk through* something that would be richer as a rendered page than as markdown. Produces a single self-contained `.html` file in `/tmp`, opens it in the default browser.
+
+Patterns are pulled from [ThariqS/html-effectiveness](https://github.com/ThariqS/html-effectiveness) — 20 curated artifact types (status reports, incident timelines, flowcharts, implementation plans, comparison sheets, etc.). The skill picks the closest pattern, optionally fetches the upstream example for structural reference, then generates a self-contained file (inline CSS + JS + SVG, no CDN, no trackers, system fonts only, dark-mode honest).
+
+Independent of the `/start` → `/ship` pipeline — use it any time. Example asks: *"Visualize the deploy pipeline as a flowchart"*, *"Draft a Monday status update for this branch"*, *"Compare these three caching strategies side-by-side"*.
+
 ## The `review-turn` skill
 
 The plugin's core abstraction. Auto-invokes whenever any reviewer (Codex, CodeRabbit, manual) returns feedback. Wraps `superpowers:receiving-code-review` to enforce:
@@ -97,6 +105,7 @@ through-shower/
 ├── README.md
 ├── commands/{auto,start,ship,through-shower,status,resume}.md
 ├── skills/review-turn/SKILL.md
+├── skills/visualize-as-html/{SKILL.md, references/{patterns.md, template.html}}
 ├── agents/coderabbit-shepherd.md
 ├── scripts/{cr-fresh-review,cr-threads}.sh
 └── references/pitfalls.md
