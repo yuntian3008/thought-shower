@@ -28,13 +28,17 @@ gh pr checks $(gh pr view --json number -q .number) 2>/dev/null
 
 ### CodeRabbit state (if PR exists)
 
+CR state is read from the **commit-status endpoint** (same source as Stage 4d's poll). See `references/pitfalls.md` #10 for why the older reviews+commit_id filter misses CR's clean-pass and skipped responses.
+
 ```bash
 PR_NUMBER=<from above>
 HEAD_OID=<from above>
+OWNER_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 
-# Latest CR review on current HEAD
-gh api "repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/pulls/$PR_NUMBER/reviews" \
-  --jq "[ .[] | select(((.user.login // \"\") | test(\"^coderabbitai(\\\\[bot\\\\])?\$\"; \"i\")) and .commit_id == \"$HEAD_OID\") ] | length"
+# CR commit status on current HEAD. Possible values:
+#   success | failure | pending | <none>
+gh api "repos/$OWNER_REPO/commits/$HEAD_OID/status" \
+  --jq '(.statuses // []) | map(select(.context == "CodeRabbit")) | (first // null) | (.state // "<none>")'
 
 # Unresolved CR threads (use scripts/cr-threads.sh)
 "${CLAUDE_PLUGIN_ROOT}/scripts/cr-threads.sh" $PR_NUMBER \
@@ -58,7 +62,7 @@ Base:          dev
 HEAD:          ed562b12
 
 Codex:         done (summary comment posted)  |  unknown (no comment found)
-CodeRabbit:    review posted on current HEAD
+CodeRabbit:    status=success on current HEAD   (other values: pending | failure | <none>)
   Threads:     3 unresolved
 Checks:        4 PASS, 0 FAIL, 0 PENDING
 
@@ -72,9 +76,10 @@ Inferred next stage: Stage 4 — resolve CR threads (run /thought-shower:ship)
 | No PR exists, no commits ahead | Stage 1 (run `/thought-shower:start`) |
 | No PR exists, commits ahead | Stage 2 (run `/thought-shower:ship`) |
 | Draft PR + base != dev | Stage 4a (waiting for base flip) |
-| Draft PR + base == dev OR ready PR + no CR review on current HEAD | Stage 4b/c (CR phase) |
-| CR review posted + unresolved threads > 0 | Stage 4d (resolve threads) |
-| CR review posted + unresolved threads == 0 + checks not all green | Stage 5 (waiting on checks) |
+| Draft PR + base == dev OR ready PR + CR commit-status `pending` or `<none>` | Stage 4b/c (CR phase) |
+| CR commit-status `success` + unresolved threads > 0 | Stage 4d (resolve threads) |
+| CR commit-status `success` + unresolved threads == 0 + checks not all green | Stage 5 (waiting on checks) |
+| CR commit-status `failure` | Surface failure description; stop |
 | All clear | Stage 6 (merge handoff) |
 | Stage detection fails (e.g., gh not authenticated) | Report the failure literally; do not guess |
 
