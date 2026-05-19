@@ -7,6 +7,9 @@ A personal Claude Code plugin — commands, pipelines, and skills bundled togeth
 ## What's in the box today
 
 - **Shipping pipeline** (`/start` + `/ship`) — six stages from blank branch to ready-to-merge. Detailed below.
+- **`brainstorming-lite` skill** — same discipline as full brainstorming, no written spec. Used by `/start --lite`.
+- **`prompt` skill** — generate raw prompt material as input for brainstorming. Saves to `.prompts/`.
+- **`learn` skill** — extract session learnings and route them to canonical homes via `CANONICAL.md`.
 - **`review-turn` skill** — shared review-feedback discipline used by every reviewer turn.
 - **`visualize-as-html` skill** — produce a self-contained HTML artifact when a rendered page beats markdown.
 
@@ -19,19 +22,18 @@ Each pipeline stage has a clear exit condition. The plugin holds your hand only 
 
 ## Install
 
-This plugin is not yet on the official Claude Code marketplace. Install locally:
+Via marketplace:
+
+```bash
+/plugin marketplace add yuntian3008/yuntian3008
+/plugin install thought-shower@yuntian3008
+```
+
+Or install locally:
 
 ```bash
 git clone https://github.com/yuntian3008/thought-shower.git
 claude --plugin-dir ./thought-shower
-```
-
-Or symlink into your local plugins directory and use it across sessions:
-
-```bash
-git clone https://github.com/yuntian3008/thought-shower.git ~/.claude/plugins/local/thought-shower
-# in any Claude Code session:
-/reload-plugins
 ```
 
 After install, verify the required dependencies (see below) are installed.
@@ -42,7 +44,7 @@ The plugin runs a preflight check on every command and fails fast if any are mis
 
 | Dep | Provides | Install |
 | --- | --- | --- |
-| [`superpowers`](https://github.com/anthropic-experimental/superpowers) | `brainstorming`, `brainstorming-lite`, `finishing-a-development-branch`, `receiving-code-review` | `/plugin install superpowers` |
+| [`superpowers`](https://github.com/anthropic-experimental/superpowers) | `brainstorming`, `finishing-a-development-branch`, `receiving-code-review` | `/plugin install superpowers` |
 | [`codex`](https://github.com/openai/codex) | `codex:codex-rescue` agent (Stage 3) | `/plugin install codex` |
 
 `gh` must be authenticated (`gh auth status`). CodeRabbit must be installed on the target repo — Stage 4 hard-requires it and will time out at 30 min if no review posts.
@@ -55,7 +57,7 @@ No user settings to configure. The plugin is hands-off at Stage 6 — it prints 
 
 | Command | Use |
 | --- | --- |
-| `/thought-shower:start [--lite] <description>` | Stage 1 only. Picks base branch, infers `<type>/<slug>`, creates the branch, invokes `superpowers:brainstorming` (or `brainstorming-lite` with `--lite`). |
+| `/thought-shower:start [--lite] <description>` | Stage 1 only. Picks base branch, infers `<type>/<slug>`, creates the branch, invokes brainstorming (or `brainstorming-lite` with `--lite`). |
 | `/thought-shower:ship` | Stages 2–6 from the current branch. Idempotent — safe to re-run after pushing fixes. |
 | `/thought-shower:thought-shower <description>` | Auto-chains `/start` then `/ship` in one session. For trivially small features only. |
 | `/thought-shower:status` | Read-only state report: branch, PR, draft state, CR review state, threads, checks. Infers the next stage. |
@@ -67,7 +69,7 @@ The current centerpiece. Future versions may add other pipelines for other workf
 
 | Stage | What happens | Owner |
 | --- | --- | --- |
-| 1. Branch setup | Pick base branch (default `dev`), infer type+slug from description, `git switch -c <type>/<slug> <base>`, invoke `superpowers:brainstorming(-lite)`. Refuses on dirty tree. | `/start` |
+| 1. Branch setup | Pick base branch (default `dev`), infer type+slug from description, `git switch -c <type>/<slug> <base>`, invoke brainstorming (or brainstorming-lite with `--lite`). Refuses on dirty tree. | `/start` |
 | 2. Finishing | `superpowers:finishing-a-development-branch`; auto-derives PR title+body from branch name + commits; creates draft PR. | `/ship` |
 | 3. Codex turn | Dispatches `codex:codex-rescue` once → `review-turn` skill triages findings → user fixes → asks "re-run on new HEAD, or move to CR?" → on move-on, posts a summary comment on the PR documenting the round (findings, per-item decisions, fix commits) so CodeRabbit and human reviewers can see what Codex did. | `/ship` |
 | 4. CodeRabbit turn | **Parent:** base-flip + CR-existence polls (Monitor + bash). **Subagent (`coderabbit-shepherd`):** thread-resolution loop, `review-turn` per thread, GraphQL resolve mutation. Returns `{status: 'all_resolved' \| 'head_changed' \| 'failed'}`. | `/ship` + `coderabbit-shepherd` |
@@ -75,6 +77,18 @@ The current centerpiece. Future versions may add other pipelines for other workf
 | 6. Merge handoff | Prints a "ready to merge" summary (title, URL, status) and stops. Never auto-merges. Notifications and merge are the user's responsibility. | `/ship` |
 
 ## Skills
+
+### `brainstorming-lite`
+
+Same discipline as full `superpowers:brainstorming` — context exploration, one-question-at-a-time clarification, 2–3 approaches with tradeoffs, section-by-section design approval — but skips the written spec file, spec self-review, and the `writing-plans` handoff. Executes directly after design approval. Used by `/start --lite`.
+
+### `prompt`
+
+Generate raw prompt material as input for brainstorming. Takes a task description, does a light context scan, checks if the task should be split into multiple prompts (based on complexity), asks for a destination (default `.prompts/`), then writes ready-to-paste prompt strings.
+
+### `learn`
+
+Extract non-obvious learnings from the current session and route each one to its canonical home as declared in the project's `CANONICAL.md`. If `CANONICAL.md` is missing, scaffolds one interactively by scanning the repo for directories that look like learning destinations. Two destinations are always included: gotchas (folder-level `AGENTS.md ## Gotchas`) and memory (agent's built-in memory system).
 
 ### `review-turn`
 
@@ -112,6 +126,9 @@ thought-shower/
 ├── .claude-plugin/plugin.json
 ├── README.md
 ├── commands/{start,ship,thought-shower,status,resume}.md
+├── skills/brainstorming-lite/SKILL.md
+├── skills/prompt/SKILL.md
+├── skills/learn/SKILL.md
 ├── skills/review-turn/SKILL.md
 ├── skills/visualize-as-html/{SKILL.md, references/{patterns.md, template.html}}
 ├── agents/coderabbit-shepherd.md
