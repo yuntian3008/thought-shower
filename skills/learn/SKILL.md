@@ -36,24 +36,32 @@ Build `ROUTING_TABLE` — a list of `{type, path, when, format}` entries, preser
    | gotchas | auto | Scope = a single folder or file (folder-specific quirk) | Append `- YYYY-MM-DD: <lesson> (commit <short-hash>)` to nearest `<folder>/AGENTS.md ## Gotchas`. Create section if missing. |
    | memory | auto | Personal preference or cross-project insight | New file with frontmatter (name, description, type) in user memory dir. Update MEMORY.md index. |
 
-3. Ask the user which additional destinations to enable (multi-select):
+3. **Scan the repo** for directories that look like learning destinations:
+
+   ```bash
+   # Candidate directories to scan for
+   find . -maxdepth 3 -type d \
+     \( -name "rules" -o -name "adr" -o -name "runbooks" \
+        -o -name "guides" -o -name "decisions" -o -name "conventions" \
+        -o -name "reference" -o -name "specs" -o -name "notes" \) \
+     2>/dev/null
+   ```
+
+   Filter out `node_modules/`, `dist/`, `.git/`, and other build artifacts. Present the discovered directories as a multi-select:
 
    ```
-   Which additional destinations should /learn route to?
+   Scanned repo structure. These directories look like learning destinations:
    (gotchas and memory are always enabled)
 
-   ☐ rules (.claude/rules/)
-   ☐ adr (docs/adr/)
-   ☐ runbooks (docs/runbooks/)
+   ☐ .claude/rules/
+   ☐ docs/adr/
+   ☐ docs/runbooks/
+   ☐ docs/guides/
    ```
 
-4. For each selected destination, add its row using these defaults:
+   If no directories are found, skip this step — CANONICAL.md gets only gotchas + memory rows.
 
-   | Type | Path | When | Format |
-   |---|---|---|---|
-   | rules | .claude/rules/ | Cross-cutting code rule that matches an existing rule file | Bullet under the most relevant existing section. No new files without user approval. |
-   | adr | docs/adr/ | "Picked X over Y because Z" — an architectural decision | New file from docs/adr/template.md if it exists; otherwise MADR short format. NNNN = next free number. |
-   | runbooks | docs/runbooks/ | Step-by-step operational procedure | Create new or append. Match the style of existing runbooks. |
+4. For each selected directory, **infer** the `Type`, `When`, and `Format` cells from the directory name and its existing content (read 2–3 files inside to understand the pattern). Present the inferred row to the user for confirmation before adding it.
 
 5. Write `./CANONICAL.md` with the assembled table:
 
