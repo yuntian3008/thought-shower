@@ -73,9 +73,9 @@ Inferred next stage: Stage 4 — resolve CR threads (run /thought-shower:ship)
 | No PR exists, no commits ahead | Stage 1 (run `/thought-shower:start`) |
 | No PR exists, commits ahead | Stage 2 (run `/thought-shower:ship`) |
 | Draft PR + base != dev | Stage 4a (waiting for base flip) |
-| Draft PR + base == dev OR ready PR + CR commit-status `pending` or `<none>` | Stage 4b/c (CR phase) |
-| CR commit-status `success` + unresolved threads > 0 | Stage 4d (resolve threads) |
-| CR commit-status `success` + unresolved threads == 0 + checks not all green | Stage 5 (waiting on checks) |
+| Draft PR + base == dev OR ready PR + CR commit-status `pending` or `<none>` | Stage 4b/c (waiting for CR) |
+| CR commit-status `success` + unresolved threads > 0 | Stage 4e (resolve threads) |
+| CR commit-status `success` + unresolved threads === 0 + checks not all green | Stage 5 (waiting on checks) |
 | CR commit-status `failure` | Surface failure description; stop |
 | All clear | Stage 6 (merge handoff) |
 | Stage detection fails (e.g., gh not authenticated) | Report the failure literally; do not guess |
