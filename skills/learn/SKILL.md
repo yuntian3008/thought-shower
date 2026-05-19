@@ -34,7 +34,7 @@ Build `ROUTING_TABLE` — a list of `{type, path, when, format}` entries, preser
    | Type | Path | When | Format |
    |---|---|---|---|
    | gotchas | auto | Scope = a single folder or file (folder-specific quirk) | Append `- YYYY-MM-DD: <lesson> (commit <short-hash>)` to nearest `<folder>/AGENTS.md ## Gotchas`. Create section if missing. |
-   | memory | auto | Personal preference, cross-project insight, or user correction that should persist across sessions | Write to the agent's built-in memory system (e.g. Claude Code auto-memory, Cursor memory). No commit — memory lives outside the repo. |
+   | memory | auto | Personal preference, cross-project insight, or user correction that should persist across sessions | Write to the agent's built-in memory system (e.g. Claude Code auto-memory, Cursor memory). |
 
 3. **Scan the repo** for directories that look like learning destinations:
 
