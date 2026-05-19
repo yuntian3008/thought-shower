@@ -17,7 +17,7 @@ Install: superpowers, codex
 
 Required:
 - skill `superpowers:brainstorming`
-- skill `superpowers:brainstorming-lite` (only if `--lite`)
+- skill `thought-shower:brainstorming-lite` (only if `--lite`)
 - skill `superpowers:finishing-a-development-branch`
 - skill `superpowers:receiving-code-review`
 - agent `codex:codex-rescue`
@@ -28,7 +28,7 @@ Required:
 
 `$ARGUMENTS` may start with `--lite`. If so:
 - Set `LITE=1` and strip the flag.
-- Use `superpowers:brainstorming-lite` in step 7.
+- Use `thought-shower:brainstorming-lite` in step 7.
 
 The remaining text is `<description>`. If empty, ask the user "What's this feature about?" and use their reply.
 
@@ -115,7 +115,7 @@ Record in conversation context (do NOT write to memory):
 ### 7. Invoke brainstorming
 
 Use the `Skill` tool:
-- If `LITE=1`: invoke `superpowers:brainstorming-lite`.
+- If `LITE=1`: invoke `thought-shower:brainstorming-lite`.
 - Else: invoke `superpowers:brainstorming`.
 
 Pass `<description>` as the topic. Do not auto-chain into `/ship` — that's a separate command.
