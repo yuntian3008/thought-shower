@@ -1,29 +1,76 @@
 ---
 name: learn
-description: "Extract non-obvious learnings from the current session and route each one to its canonical home — rules, ADRs, runbooks, AGENTS.md gotchas, or the user's memory directory. Auto-detects which destinations exist in the current repo. Use when the user wants to capture session learnings, distill knowledge, or accumulate gotchas after finishing a task. Triggers on: learn, capture learnings, distill session, accumulate knowledge."
+description: "Extract non-obvious learnings from the current session and route each one to its canonical home as declared in the project's CANONICAL.md. If CANONICAL.md is missing, scaffold one interactively. Triggers on: learn, capture learnings, distill session, accumulate knowledge."
 user_invocable: true
 ---
 
 # `/learn`
 
-Scan the current session transcript for non-obvious learnings, classify each one's destination, gate them on dedupe + evidence, then present a batch for the user to approve. Apply approved candidates and commit per destination file.
+Scan the current session transcript for non-obvious learnings, match each against the routing table in `CANONICAL.md`, gate on dedupe + evidence, then present a batch for the user to approve.
 
-## Step 0 — Detect available destinations
+## Step 0 — Load routing table
 
-Before extracting, scan the current working directory for destination dirs that exist. Build `AVAILABLE_DESTINATIONS` from what's present:
+Read `./CANONICAL.md` from the project root.
 
-```bash
-# Always available
-AGENTS_MD=true    # any repo can have <folder>/AGENTS.md
-MEMORY=true       # user memory dir always exists
+**If the file exists:** parse the first markdown table. Each row has four columns:
 
-# Conditionally available — check existence
-RULES=$([ -d .claude/rules ] && echo true || echo false)
-ADR=$([ -d docs/adr ] && echo true || echo false)
-RUNBOOKS=$([ -d docs/runbooks ] && echo true || echo false)
-```
+| Column | Meaning |
+|---|---|
+| Type | Short label for this destination (e.g. `rules`, `adr`, `gotchas`) |
+| Path | Directory path relative to project root, or `auto` for destinations that resolve dynamically |
+| When | Describes which learnings belong here — used to match candidates |
+| Format | How to write the entry into this destination |
 
-Only route learnings to destinations that are `true`. When presenting candidates, skip unavailable destination types silently — don't suggest creating directories.
+Build `ROUTING_TABLE` — a list of `{type, path, when, format}` entries, preserving table order. Unknown or malformed rows are silently skipped.
+
+**If the file is missing:** run the scaffolding flow, then exit.
+
+### Scaffolding flow
+
+1. Print: `No CANONICAL.md found. Let's set one up.`
+
+2. Two destinations are always included (do not ask):
+
+   | Type | Path | When | Format |
+   |---|---|---|---|
+   | gotchas | auto | Scope = a single folder or file (folder-specific quirk) | Append `- YYYY-MM-DD: <lesson> (commit <short-hash>)` to nearest `<folder>/AGENTS.md ## Gotchas`. Create section if missing. |
+   | memory | auto | Personal preference or cross-project insight | New file with frontmatter (name, description, type) in user memory dir. Update MEMORY.md index. |
+
+3. Ask the user which additional destinations to enable (multi-select):
+
+   ```
+   Which additional destinations should /learn route to?
+   (gotchas and memory are always enabled)
+
+   ☐ rules (.claude/rules/)
+   ☐ adr (docs/adr/)
+   ☐ runbooks (docs/runbooks/)
+   ```
+
+4. For each selected destination, add its row using these defaults:
+
+   | Type | Path | When | Format |
+   |---|---|---|---|
+   | rules | .claude/rules/ | Cross-cutting code rule that matches an existing rule file | Bullet under the most relevant existing section. No new files without user approval. |
+   | adr | docs/adr/ | "Picked X over Y because Z" — an architectural decision | New file from docs/adr/template.md if it exists; otherwise MADR short format. NNNN = next free number. |
+   | runbooks | docs/runbooks/ | Step-by-step operational procedure | Create new or append. Match the style of existing runbooks. |
+
+5. Write `./CANONICAL.md` with the assembled table:
+
+   ```markdown
+   # Canonical Homes
+
+   Where `/learn` routes session learnings in this repo.
+   Edit rows to customize routing. Remove a row to disable that destination.
+
+   | Type | Path | When | Format |
+   |---|---|---|---|
+   | ... assembled rows ... |
+   ```
+
+6. Print: `Created CANONICAL.md. Re-run /learn to extract learnings.`
+
+7. Exit — do not extract learnings on the scaffolding run.
 
 ## Step 1 — Extract candidates
 
@@ -33,9 +80,9 @@ Scan the current session transcript for non-obvious discoveries:
 - File edits driven by user corrections ("don't do X", "use Y instead")
 - Multi-attempt fixes where the first approach failed
 - Misleading errors with non-obvious root causes
-- Commands / configs / flags that were not in any AGENTS.md, rule, or README
+- Commands / configs / flags not documented in any AGENTS.md, rule, or README
 
-Apply the filter. Keep a candidate only if it matches **at least one INCLUDE** and **zero EXCLUDE**:
+Keep a candidate only if it matches **at least one INCLUDE** and **zero EXCLUDE**:
 
 **INCLUDE:**
 
@@ -48,49 +95,38 @@ Apply the filter. Keep a candidate only if it matches **at least one INCLUDE** a
 
 **EXCLUDE:**
 
-- Already documented in `CLAUDE.md` / `AGENTS.md` / `.claude/rules/` / `docs/adr/` / `docs/runbooks/`
+- Already documented in CLAUDE.md / AGENTS.md / any path listed in CANONICAL.md
 - Standard language / framework behavior
 - Session-specific one-offs (not a repeating pattern)
 - Hypotheses without commit hash or file:line evidence
 
 ## Step 2 — Classify destination
 
-Walk this decision tree top-down. The first match wins. **Skip any row whose destination is unavailable (Step 0).**
+For each candidate, walk `ROUTING_TABLE` top-down. Compare the candidate against each row's `When` description. First match wins.
 
-| Lesson signature                                       | Destination                                                                |
-| ------------------------------------------------------ | -------------------------------------------------------------------------- |
-| Scope = a single folder / file (folder-specific quirk) | `<closest-folder>/AGENTS.md` `## Gotchas` section                          |
-| "Picked X over Y because Z" (architectural decision)   | `docs/adr/NNNN-<slug>.md` — new file, NNNN = next free number              |
-| Step-by-step operational procedure                     | `docs/runbooks/<name>.md` — new or append                                  |
-| Cross-cutting code rule, matches an existing rule area | `.claude/rules/<area>.md` — append                                         |
-| Personal preference / cross-project insight            | `~/.claude/projects/.../memory/<type>_<name>.md` + `MEMORY.md` index entry |
-| Doesn't match cleanly                                  | SKIP — do not create new files just to home a lesson                       |
-
-When `RULES=true`, list files under `.claude/rules/` at invocation time and match the lesson to the area whose filename best fits. Do not create a new `.claude/rules/<file>.md` without explicit user approval.
+If no row matches, mark the candidate as SKIP.
 
 ## Step 3 — Hard gates
 
-Apply both gates per candidate. If either fails, mark the candidate accordingly and set the default action to `skip`.
+Apply both gates per candidate. If either fails, set the default action to `skip`.
 
-**Dedupe:** read the destination file. For folder `AGENTS.md`, grep only the `## Gotchas` section. If similar content already exists, mark `[DUP]`.
+**Dedupe:** read the destination file. If similar content already exists, mark `[DUP]`.
 
 **Evidence:** each candidate must carry a commit hash or file:line reference from this session. Otherwise mark `[NO-EVIDENCE]`.
 
 ## Step 4 — Present batch
-
-Print one batch in this format:
 
 ```
 Found N candidate learnings:
 
 [1] READY
     Lesson: <one-line summary>
-    Destination: <path> (<section if applicable>)
+    Destination: <type> → <path> (<section if applicable>)
     Evidence: <commit-hash> — <commit subject>     OR     <file:line>
 
 [2] DUP
     Lesson: <one-line summary>
-    Destination: <path> (already documented at <line/section>)
+    Destination: <type> → <path> (already documented at <line/section>)
     Default: skip
 
 [3] NO-EVIDENCE
@@ -102,30 +138,17 @@ Reply with:
 - "ok"                    → apply all defaults (READY → write, DUP/NO-EVIDENCE → skip)
 - per-item override:
     "1 reject"            (drop a READY candidate)
-    "2 dest=docs/adr/"    (re-route to a different destination)
-    "3 force"             (write despite DUP)
-    "4 dest=memory:reference_<name>.md"  (route to memory)
+    "2 dest=<type>"       (re-route to a different destination from the table)
+    "3 force"             (write despite DUP or NO-EVIDENCE)
 ```
 
 If `N == 0`, print `No non-obvious learnings detected.` and exit.
 
 ## Step 5 — Apply + commit
 
-Wait for the user's reply. Apply overrides on top of defaults. For each candidate to be written:
+Wait for the user's reply. Apply overrides on top of defaults. For each candidate to be written, follow the matched row's `Format` instructions.
 
-| Destination                       | Format                                                                                                                                                                    |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.claude/rules/<area>.md`         | Bullet under the most relevant existing section. New subsection only if no existing section fits.                                                                         |
-| `docs/adr/NNNN-<slug>.md`         | New file from `docs/adr/template.md` if it exists; otherwise use MADR short format. NNNN = next free number (scan existing files).                                        |
-| `docs/runbooks/<name>.md`         | Create new or append. Match the style of existing runbooks.                                                                                                               |
-| `<folder>/AGENTS.md` `## Gotchas` | Append `- YYYY-MM-DD: <one-line lesson> (commit <short-hash>)`. Create the `## Gotchas` section at the bottom if missing. Do not edit other sections.                     |
-| Memory file                       | New file with frontmatter (`name`, `description`, `type`) matching the format used in `~/.claude/projects/.../memory/`. Update `MEMORY.md` index with a one-line pointer. |
-
-Commit per destination file using Conventional Commits. Examples:
-
-- `docs(rules): add idempotency note to database.md`
-- `docs(adr): add ADR-0017 cancellation semantics`
-- `docs(agents): note onTerminate skip in chat-turn`
+Commit per destination file using Conventional Commits.
 
 Memory writes happen outside the repo — no commit.
 
@@ -135,6 +158,6 @@ If a write fails, log it, continue with the rest, and report what succeeded vs f
 
 - **Long session (transcript >200k tokens):** scan only the most recent window; print a warning.
 - **User rejects entire batch:** no commits, exit clean.
-- **ADR conflict:** before proposing an ADR destination, grep existing ADR titles for keyword overlap. If a likely conflict is detected, mark `[CONFLICT-ADR-NNNN]` and skip auto-route.
+- **ADR conflict:** if a row's type is `adr`, grep existing ADR titles for keyword overlap before routing. If a likely conflict is detected, mark `[CONFLICT]` and skip auto-route.
 - **Memory write fails:** skip that entry, continue with others.
-- **No destinations available (bare repo):** only AGENTS.md gotchas and memory are available. Route there or skip.
+- **Empty routing table:** print `CANONICAL.md has no valid routing rows.` and exit.
