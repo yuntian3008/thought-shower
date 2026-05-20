@@ -105,9 +105,9 @@ For each thread in the filtered list:
 #### D1. Outdated thread
 
 If `isOutdated: true`:
-- Surface to the user: `Thread is outdated: <file:line> <url>. OK to ignore?`
-- On `yes` → run `resolveReviewThread` mutation, mark done.
-- On `no` → leave in list as `unresolved`; continue to next thread.
+- Pass through review-turn (D4) like any other thread. review-turn's PRESENT step will show the outdated context and collect the user's decision.
+- On `decline` or `defer` → run `resolveReviewThread` mutation, mark done.
+- On `fix` → add to `pendingFixes`.
 
 #### D2. Already-resolved-since-pull
 
