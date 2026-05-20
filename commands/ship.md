@@ -222,7 +222,7 @@ The subagent returns one of:
 Re-verify all conditions in this turn (do not rely on memory):
 
 ```bash
-gh pr view <number> --json state,isDraft,baseRefName
+gh pr view <number> --json state,isDraft,baseRefName,mergeable
 gh pr checks <number>
 ```
 
@@ -230,6 +230,7 @@ All must hold:
 - `state == "OPEN"`
 - `isDraft == false`
 - `baseRefName == "dev"`
+- `mergeable == "MERGEABLE"` (no merge conflicts with base)
 - Every check row is PASS or SKIPPING (no FAIL, no PENDING)
 
 If any condition fails, surface to the user with a recommended next action and stop.
