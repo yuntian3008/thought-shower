@@ -25,17 +25,20 @@ If the input is empty (no findings) or already-resolved, exit immediately and re
 
 ```
 1. PARSE the findings into atomic items: { id, file:line, severity, summary, body, link? }
+   Resolve all file paths to absolute (e.g. prepend the project root from `git rev-parse --show-toplevel`).
 2. APPLY superpowers:receiving-code-review discipline to each item:
    - VERIFY against codebase reality (does the file:line still exist? is the concern accurate?)
    - EVALUATE technical merit (is it a bug, a style preference, or a misunderstanding?)
    - DECIDE recommendation: fix | decline | defer | clarify
 3. GROUP by severity (critical → high → medium → low → nit)
-4. PRESENT to the user, per-item:
-     [item N/M]  <severity>  <file:line>  <summary>
+4. PRESENT every item to the user — this step is mandatory, even for single-item findings.
+   Per item:
+     [item N/M]  <severity>  <absolute-path:line>  <summary>
      Reviewer:       <body excerpt>
      Verified:       <yes|no — with detail>
      Recommendation: <fix|decline|defer|clarify> — <one-sentence reason>
    Then ask: "Decision? [fix | decline | defer | other (free text)]"
+   File paths must be absolute (e.g. /Users/.../src/foo.ts:42) so the user can click them.
 5. COLLECT decisions. Return them to the caller as { items: [{id, decision, replyText?}] }
 ```
 
