@@ -52,7 +52,7 @@ Use the `Skill` tool to invoke `superpowers:finishing-a-development-branch`. Pas
 - Pass `--base <RECORDED_BASE>` and `--draft` to the `gh pr create` command.
 - Auto-derive title and body — do NOT prompt the user:
   - **Title**: derive from branch name. `feat/add-user-auth` → `feat: add user auth`. Replace `/` with `: `, replace `-` in slug with spaces.
-  - **Body**: list commit subjects on the branch (`git log --format='- %s' <RECORDED_BASE>..HEAD`). Wrap in a `## Summary` section. Append a `## Test plan` section with a single TODO line (`- [ ] manual verify`).
+  - **Body**: read the diff (`git diff <RECORDED_BASE>..HEAD`) and the commit log (`git log --oneline <RECORDED_BASE>..HEAD`). Write a `## Summary` section with 2–4 bullet points that describe *what changed and why* in plain language. Append a `## Test plan` section with a single TODO line (`- [ ] manual verify`).
 
 If a draft PR already exists, skip Stage 2 (idempotent re-run). Capture the PR number for later stages:
 
