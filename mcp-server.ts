@@ -85,6 +85,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
+      name: "telegram_seen",
+      description: "React ✅ to a Telegram message to signal it has been read. Pass the messageId from the Monitor notification.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          messageId: { type: "number", description: "The messageId from the inbox JSON line" },
+        },
+        required: ["messageId"],
+      },
+    },
+    {
       name: "telegram_init",
       description: "Create or reuse a Telegram topic for a session name and set it as active.",
       inputSchema: {
@@ -120,6 +131,18 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       const bot = new TelegramBot(config.botToken);
       await bot.sendMessage(config.groupId, text, session.topicId);
       return ok(`Sent to ${activeName}`);
+    }
+
+    if (tool === "telegram_seen") {
+      const messageId = a.messageId as number;
+      if (!messageId) return err("messageId is required");
+
+      const config = await loadConfig();
+      if (!config) return err("Not configured.");
+
+      const bot = new TelegramBot(config.botToken);
+      await bot.react(config.groupId, messageId, "✅");
+      return ok("Seen");
     }
 
     if (tool === "telegram_daemon") {

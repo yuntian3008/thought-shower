@@ -42,6 +42,14 @@ export class TelegramBot {
     });
   }
 
+  async react(chatId: number, messageId: number, emoji: string) {
+    await this.call("setMessageReaction", {
+      chat_id: chatId,
+      message_id: messageId,
+      reaction: [{ type: "emoji", emoji }],
+    });
+  }
+
   async createForumTopic(chatId: number, name: string) {
     return this.call<{ message_thread_id: number; name: string }>(
       "createForumTopic",

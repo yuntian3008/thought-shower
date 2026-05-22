@@ -25,6 +25,6 @@ Start receiving Telegram messages in this Claude Code session.
    ```json
    {"from":"Thien","text":"message here","ts":1716388800,"messageId":42}
    ```
-   Read the message in the context of the current project and respond helpfully.
+   First, call MCP tool `telegram_seen` with the `messageId` to mark it as read (✅ reaction). Then read the message in the context of the current project and respond helpfully.
 
-8. **Send replies** — call MCP tool `send_telegram` with the reply text.
+8. **Send replies** — call MCP tool `send_telegram` with the reply text. Telegram has a 4096 character limit per message. Keep replies concise. If the answer is long, split it into multiple `send_telegram` calls yourself — each one a self-contained section with complete formatting.
