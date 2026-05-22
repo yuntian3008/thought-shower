@@ -46,7 +46,7 @@ export class TelegramBot {
       chat_id: chatId,
       text,
       message_thread_id: topicId,
-      parse_mode: "Markdown",
+      parse_mode: "MarkdownV2",
     });
   }
 
@@ -60,7 +60,7 @@ export class TelegramBot {
       chat_id: chatId,
       text,
       message_thread_id: topicId,
-      parse_mode: "Markdown",
+      parse_mode: "MarkdownV2",
       reply_markup: { inline_keyboard: buttons },
     });
   }
@@ -77,7 +77,7 @@ export class TelegramBot {
       chat_id: chatId,
       message_id: messageId,
       text,
-      parse_mode: "Markdown",
+      parse_mode: "MarkdownV2",
     });
   }
 

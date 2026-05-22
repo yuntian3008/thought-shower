@@ -1,4 +1,5 @@
 import { TelegramBot } from "./telegram";
+import { escapeMarkdownV2 } from "./markdown";
 import {
   appendInbox,
   ensureDirs,
@@ -29,7 +30,7 @@ async function gcOrphanPendings(bot: TelegramBot) {
     if (isProcessAlive(data.mcpPid)) continue;
     await removePending(id);
     bot
-      .editMessageText(data.chatId, data.messageId, "❌ Session ended")
+      .editMessageText(data.chatId, data.messageId, escapeMarkdownV2("❌ Session ended"))
       .catch(() => {});
     console.error(
       `[telegram-bridge] gc removed orphan pending: ${id} (pid ${data.mcpPid} dead)`,
@@ -101,7 +102,7 @@ async function main() {
                 .editMessageText(
                   pending.chatId,
                   pending.messageId,
-                  `✅ ${label}`,
+                  `✅ ${escapeMarkdownV2(label)}`,
                 )
                 .catch(() => {});
 
@@ -145,7 +146,7 @@ async function main() {
             .editMessageText(
               matched.data.chatId,
               matched.data.messageId,
-              `✅ 💬 ${preview}`,
+              `✅ 💬 ${escapeMarkdownV2(preview)}`,
             )
             .catch(() => {});
           bot.react(config.groupId, msg.message_id, "👌").catch(() => {});

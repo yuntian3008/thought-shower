@@ -136,7 +136,7 @@ async function init() {
   await saveSession(name, info);
   await setActive(name);
 
-  await bot.sendMessage(config.groupId, "Session started.", info.topicId);
+  await bot.sendMessage(config.groupId, "Session started\\.", info.topicId);
   console.log(`Created topic "${name}" (ID: ${info.topicId})`);
 }
 

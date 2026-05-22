@@ -8,6 +8,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { randomBytes } from "crypto";
 import { TelegramBot } from "./scripts/telegram-bridge/telegram";
+import { escapeMarkdownV2 } from "./scripts/telegram-bridge/markdown";
 import {
   writePending,
   readResponse,
@@ -89,7 +90,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "send_telegram",
-      description: "Send a message to a Telegram session topic. Telegram renders Markdown (inline code, bold, italic, code blocks). Max 4096 chars per message — if the reply is longer, call this tool multiple times with self-contained sections.",
+      description: "Send a message to a Telegram session topic. Text is rendered as Telegram MarkdownV2 — caller is responsible for escaping these 18 specials with a backslash if used as literal text: _ * [ ] ( ) ~ ` > # + - = | { } . ! \\. For plain prose, the safest path is to pre-escape all specials; for formatting, use *bold*, _italic_, `code`, and ```code blocks``` with their content properly escaped. Max 4096 chars per message — if the reply is longer, call this tool multiple times with self-contained sections.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -208,11 +209,13 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       const questionId = randomBytes(4).toString("hex");
 
       const lines = [];
-      if (header) lines.push(`📋 *${header}*\n`);
-      lines.push(question + "\n");
+      if (header) lines.push(`📋 *${escapeMarkdownV2(header)}*\n`);
+      lines.push(escapeMarkdownV2(question) + "\n");
       for (let i = 0; i < options.length; i++) {
         const opt = options[i];
-        lines.push(`${i + 1}. *${opt.label}*${opt.description ? ` — ${opt.description}` : ""}`);
+        const label = escapeMarkdownV2(opt.label);
+        const desc = opt.description ? ` — ${escapeMarkdownV2(opt.description)}` : "";
+        lines.push(`${i + 1}\\. *${label}*${desc}`);
       }
 
       const buttons = options.map((opt, i) => ({
@@ -312,7 +315,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       };
       await Bun.write(join(DATA_DIR, "sessions.json"), JSON.stringify(sessions, null, 2));
 
-      await bot.sendMessage(config.groupId, "Session started.", result.message_thread_id);
+      await bot.sendMessage(config.groupId, "Session started\\.", result.message_thread_id);
 
       return ok(`Created topic "${name}" (ID: ${result.message_thread_id})`);
     }
