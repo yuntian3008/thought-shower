@@ -64,7 +64,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "send_telegram",
-      description: "Send a message to the active Telegram session topic.",
+      description: "Send a message to the active Telegram session topic. Telegram renders Markdown (inline code, bold, italic, code blocks). Max 4096 chars per message — if the reply is longer, call this tool multiple times with self-contained sections.",
       inputSchema: {
         type: "object" as const,
         properties: {
