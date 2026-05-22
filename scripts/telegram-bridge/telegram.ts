@@ -38,6 +38,7 @@ export class TelegramBot {
       chat_id: chatId,
       text,
       message_thread_id: topicId,
+      parse_mode: "Markdown",
     });
   }
 

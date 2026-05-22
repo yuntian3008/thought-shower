@@ -130,6 +130,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         chat_id: config.groupId,
         text,
         message_thread_id: session.topicId,
+        parse_mode: "Markdown",
       });
       return ok(`Sent to ${activeName}`);
     }
