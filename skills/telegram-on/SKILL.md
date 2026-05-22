@@ -30,3 +30,19 @@ Start receiving Telegram messages in this Claude Code session.
 8. **Send replies** — call MCP tool `send_telegram` with the reply text and `session: <session-name>`. Telegram has a 4096 character limit per message. Keep replies concise. If the answer is long, split it into multiple `send_telegram` calls yourself — each one a self-contained section with complete formatting.
 
 9. **Ask questions** — when you need the user's input, call MCP tool `ask_telegram` with `question`, `options`, and `session: <session-name>`. The tool blocks until the user responds. The user can tap a button OR type a free-text reply if none of the options fit. Return value is `{ answer, index }` — `index` is the button index (0-based), or `-1` when the user typed a free-text reply (with `answer` holding the typed text).
+
+## While the Monitor is running
+
+**The user is on Telegram, not in this terminal.** Until they explicitly say they're back at the keyboard, assume every reply they send comes from their phone and they are NOT watching the Claude Code terminal.
+
+This changes which tools you may use:
+
+| Need | ✅ Use | ❌ Don't use |
+| --- | --- | --- |
+| Ask a question / get a decision | `ask_telegram` | `AskUserQuestion` (UI is invisible on Telegram) |
+| Status update, progress, results | `send_telegram` | Plain text output to terminal only |
+| Long answer (>4096 chars) | Multiple `send_telegram` calls, each a self-contained section | One giant terminal dump |
+
+Plain terminal output still happens (tool calls, thinking, etc.) but the user won't see it. Anything they need to read or respond to must go through `send_telegram` / `ask_telegram` with the session name from step 2.
+
+If `AskUserQuestion` slips out by reflex, the user will be confused — they see no question, just silence. Catch this before the tool call, not after.
