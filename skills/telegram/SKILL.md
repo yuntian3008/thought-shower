@@ -21,15 +21,17 @@ Connect this Claude Code session to a Telegram topic for bidirectional messaging
 
 4. **Ensure inbox file exists** — run `touch ~/.claude/thought-shower/telegram-bridge/inbox/<worktree-name>.jsonl` (sanitize the name: replace non-alphanumeric chars except `-` and `_` with `_`).
 
-5. **Start Monitor** — use the Monitor tool on: `tail -f ~/.claude/thought-shower/telegram-bridge/inbox/<worktree-name>.jsonl`
+5. **Check for existing Monitor** — run `pgrep -f "tail -f.*<worktree-name>.jsonl"`. If a process is found, another session is already monitoring this inbox. Skip step 6 — you can still send replies via step 7 but will not receive messages (the other session handles that). Tell the user: "Another session is already monitoring Telegram for this worktree. This session can send but not receive."
 
-6. **Handle incoming messages** — each Monitor notification is a JSON line:
+6. **Start Monitor** — use the Monitor tool on: `tail -f ~/.claude/thought-shower/telegram-bridge/inbox/<worktree-name>.jsonl`
+
+7. **Handle incoming messages** — each Monitor notification is a JSON line:
    ```json
    {"from":"Thien","text":"message here","ts":1716388800,"messageId":42}
    ```
    Read the message, understand it in the context of the current project, and respond helpfully.
 
-7. **Send replies** — use the `send_telegram` MCP tool with the reply text. This is the preferred method. Fallback if the MCP tool is unavailable:
+8. **Send replies** — use the `send_telegram` MCP tool with the reply text. This is the preferred method. Fallback if the MCP tool is unavailable:
    ```bash
    bun ~/wp/plugins/thought-shower/scripts/telegram-bridge/cli.ts send <reply text>
    ```
