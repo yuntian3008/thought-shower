@@ -1,6 +1,6 @@
 ---
 name: telegram-on
-description: "Start receiving Telegram messages for this session. Starts the daemon if needed, creates a topic for the current worktree, trims the inbox, and opens a Monitor."
+description: "Start receiving Telegram messages for this session. Starts the daemon if needed, creates a topic for the current worktree, and opens a Monitor."
 ---
 
 # Telegram On
@@ -17,11 +17,7 @@ Start receiving Telegram messages in this Claude Code session.
 
 4. **Check for existing Monitor** — run `pgrep -f "tail -f.*<session-name>.jsonl"`. If found, tell the user: "Telegram Monitor is already running for this worktree." and stop here.
 
-5. **Trim inbox** — keep last 100 lines to prevent unbounded growth:
-   ```bash
-   INBOX=~/.claude/thought-shower/telegram-bridge/inbox/<session-name>.jsonl
-   touch "$INBOX" && tail -n 100 "$INBOX" > "$INBOX.tmp" && mv "$INBOX.tmp" "$INBOX"
-   ```
+5. **Ensure inbox file exists** — run `touch ~/.claude/thought-shower/telegram-bridge/inbox/<session-name>.jsonl`.
 
 6. **Start Monitor** — use the Monitor tool (persistent) on: `tail -f ~/.claude/thought-shower/telegram-bridge/inbox/<session-name>.jsonl`
 

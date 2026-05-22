@@ -85,12 +85,17 @@ export async function saveOffset(offset: number) {
 
 // --- Inbox ---
 
+const MAX_INBOX_LINES = 100;
+
 export async function appendInbox(sessionName: string, line: string) {
   await ensureDirs();
   const path = join(INBOX_DIR, `${sanitize(sessionName)}.jsonl`);
   const file = Bun.file(path);
   const existing = (await file.exists()) ? await file.text() : "";
-  await Bun.write(path, existing + line + "\n");
+  const lines = (existing + line + "\n").split("\n").filter(Boolean);
+  const trimmed =
+    lines.length > MAX_INBOX_LINES ? lines.slice(-MAX_INBOX_LINES) : lines;
+  await Bun.write(path, trimmed.join("\n") + "\n");
 }
 
 export function inboxPath(sessionName: string): string {
