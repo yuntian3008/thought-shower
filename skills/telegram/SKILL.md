@@ -1,39 +1,57 @@
 ---
 name: telegram
-description: "Start Telegram bridge for this session. Creates a topic in the Telegram group (named after the current worktree), starts the background daemon if needed, and opens a Monitor on the inbox so incoming messages appear in real time. Replies go back to the topic via the send command."
+description: "Set up the Telegram bridge for Claude Code sessions. Guides through bot configuration, group discovery, and config setup. For starting/stopping the bridge, use /thought-shower:telegram-on and /thought-shower:telegram-off."
 ---
 
-# Telegram Bridge Session
+# Telegram Bridge Setup
 
-Connect this Claude Code session to a Telegram topic for bidirectional messaging.
+Set up the file-based Telegram bridge for Claude Code sessions.
 
-## Prerequisites
+## Architecture
 
-- Bot and group configured: `bun ~/wp/plugins/thought-shower/scripts/telegram-bridge/cli.ts setup --token <T> --group <G> --user <U>`
+- **Daemon** — background Bun process that polls Telegram `getUpdates` and writes to per-session inbox JSONL files
+- **Monitor** — `tail -f` on the inbox file delivers messages to Claude Code in real-time
+- **MCP tool** — `send_telegram` sends replies back to the Telegram topic
+- **CLI** — `scripts/telegram-bridge/cli.ts` for setup, session init, daemon management
 
-## Steps
+Data lives at `~/.claude/thought-shower/telegram-bridge/` (persists across plugin reinstalls).
 
-1. **Check daemon** — run `bun ~/wp/plugins/thought-shower/scripts/telegram-bridge/cli.ts daemon status`. If not running, run `bun ~/wp/plugins/thought-shower/scripts/telegram-bridge/cli.ts daemon start`.
+## First-Time Setup
 
-2. **Derive session name** — run `basename $(git rev-parse --show-toplevel)` to get the worktree name.
-
-3. **Init session** — run `bun ~/wp/plugins/thought-shower/scripts/telegram-bridge/cli.ts init --name <worktree-name>`. This creates a Telegram topic if one doesn't exist, or reuses the existing one.
-
-4. **Ensure inbox file exists** — run `touch ~/.claude/thought-shower/telegram-bridge/inbox/<worktree-name>.jsonl` (sanitize the name: replace non-alphanumeric chars except `-` and `_` with `_`).
-
-5. **Check for existing Monitor** — run `pgrep -f "tail -f.*<worktree-name>.jsonl"`. If a process is found, another session is already monitoring this inbox. Skip steps 6 and 7 — you can still send replies via step 8 but will not receive messages (the other session handles that). Tell the user: "Another session is already monitoring Telegram for this worktree. This session can send but not receive."
-
-6. **Clear inbox** — run `> ~/.claude/thought-shower/telegram-bridge/inbox/<worktree-name>.jsonl` to start fresh. Only reached when no existing Monitor was found in step 5.
-
-7. **Start Monitor** — use the Monitor tool on: `tail -f ~/.claude/thought-shower/telegram-bridge/inbox/<worktree-name>.jsonl`
-
-8. **Handle incoming messages** — each Monitor notification is a JSON line:
-   ```json
-   {"from":"Thien","text":"message here","ts":1716388800,"messageId":42}
-   ```
-   Read the message, understand it in the context of the current project, and respond helpfully.
-
-9. **Send replies** — use the `send_telegram` MCP tool with the reply text. This is the preferred method. Fallback if the MCP tool is unavailable:
+1. Create a Telegram supergroup with Topics enabled
+2. Add bot as admin with "Manage Topics" permission
+3. Disable privacy mode via @BotFather → /mybots → Bot Settings → Group Privacy → Turn off
+4. Discover group ID:
    ```bash
-   bun ~/wp/plugins/thought-shower/scripts/telegram-bridge/cli.ts send <reply text>
+   bun ~/wp/plugins/thought-shower/scripts/telegram-bridge/cli.ts discover --token "<BOT_TOKEN>"
    ```
+   Send a message in the group — the script finds the group ID.
+5. Save config:
+   ```bash
+   bun ~/wp/plugins/thought-shower/scripts/telegram-bridge/cli.ts setup --token "<TOKEN>" --group <GROUP_ID> --user <YOUR_TELEGRAM_USER_ID>
+   ```
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `/thought-shower:telegram-on` | Start receiving — daemon + Monitor + trim inbox |
+| `/thought-shower:telegram-off` | Stop receiving — kill Monitor, daemon keeps running |
+
+## CLI Reference
+
+```bash
+CLI=~/wp/plugins/thought-shower/scripts/telegram-bridge/cli.ts
+
+bun $CLI setup --token <T> --group <G> --user <U>   # Save config
+bun $CLI discover --token <T>                         # Find group ID
+bun $CLI init --name <session>                        # Create/reuse topic
+bun $CLI send <text>                                  # Send message
+bun $CLI sessions                                     # List sessions
+bun $CLI daemon start|stop|status                     # Manage daemon
+```
+
+## Troubleshooting
+
+- **409 Conflict** — another process is polling with the same bot token. Disable the official Telegram plugin in settings.json (`"telegram@claude-plugins-official": false`) and kill stale processes: `pkill -f "server.ts"` (the official plugin's MCP server).
+- **No messages arriving** — check that BotFather privacy mode is off and the bot is an admin in the group.
