@@ -1,0 +1,10 @@
+{
+  "name": "thought-shower",
+  "type": "module",
+  "scripts": {
+    "start": "bun run mcp-server.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  }
+}

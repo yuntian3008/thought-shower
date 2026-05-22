@@ -29,7 +29,7 @@ Connect this Claude Code session to a Telegram topic for bidirectional messaging
    ```
    Read the message, understand it in the context of the current project, and respond helpfully.
 
-7. **Send replies** — after composing a response, run:
+7. **Send replies** — use the `send_telegram` MCP tool with the reply text. This is the preferred method. Fallback if the MCP tool is unavailable:
    ```bash
    bun ~/wp/plugins/thought-shower/scripts/telegram-bridge/cli.ts send <reply text>
    ```
