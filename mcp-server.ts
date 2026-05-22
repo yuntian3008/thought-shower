@@ -92,7 +92,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "telegram_seen",
-      description: "React ✅ to a Telegram message to signal it has been read. Pass the messageId from the Monitor notification.",
+      description: "React 👀 to a Telegram message to signal Claude is reading it. Pass the messageId from the Monitor notification.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -171,7 +171,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       if (!config) return err("Not configured.");
 
       const bot = new TelegramBot(config.botToken);
-      await bot.react(config.groupId, messageId, "✅");
+      await bot.react(config.groupId, messageId, "👀");
       return ok("Seen");
     }
 

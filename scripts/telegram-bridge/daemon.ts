@@ -100,7 +100,7 @@ async function main() {
         });
 
         await appendInbox(sessionName, line);
-        bot.react(config.groupId, msg.message_id, "👀").catch(() => {});
+        bot.react(config.groupId, msg.message_id, "👌").catch(() => {});
         console.error(
           `[telegram-bridge] [${sessionName}] ${msg.from?.first_name}: ${msg.text}`,
         );
