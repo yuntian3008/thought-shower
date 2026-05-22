@@ -9,11 +9,11 @@ Start receiving Telegram messages in this Claude Code session.
 
 ## Steps
 
-1. **Check daemon** — run `bun ~/wp/plugins/thought-shower/scripts/telegram-bridge/cli.ts daemon status`. If not running, run `bun ~/wp/plugins/thought-shower/scripts/telegram-bridge/cli.ts daemon start`.
+1. **Check daemon** — call MCP tool `telegram_daemon` with `action: "status"`. If not running, call with `action: "start"`.
 
 2. **Derive session name** — run `basename $(git rev-parse --show-toplevel)` to get the worktree name. Sanitize: replace non-alphanumeric chars except `-` and `_` with `_`.
 
-3. **Init session** — run `bun ~/wp/plugins/thought-shower/scripts/telegram-bridge/cli.ts init --name <session-name>`.
+3. **Init session** — call MCP tool `telegram_init` with `name: <session-name>`.
 
 4. **Check for existing Monitor** — run `pgrep -f "tail -f.*<session-name>.jsonl"`. If found, tell the user: "Telegram Monitor is already running for this worktree." and stop here.
 
@@ -27,7 +27,4 @@ Start receiving Telegram messages in this Claude Code session.
    ```
    Read the message in the context of the current project and respond helpfully.
 
-8. **Send replies** — use the `send_telegram` MCP tool. Fallback if unavailable:
-   ```bash
-   bun ~/wp/plugins/thought-shower/scripts/telegram-bridge/cli.ts send <reply text>
-   ```
+8. **Send replies** — call MCP tool `send_telegram` with the reply text.
