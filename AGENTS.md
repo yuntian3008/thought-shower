@@ -157,5 +157,5 @@ Runtime is **Bun** (not Node). No test or build scripts wired up yet — if you 
 ```bash
 bun install
 bun run start            # = bun run mcp-server.ts (MCP server on stdio, for debugging)
-bunx tsc --noEmit        # type-check
+bun run typecheck        # = tsc --noEmit (uses tsconfig.json)
 ```

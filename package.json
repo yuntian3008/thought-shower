@@ -2,9 +2,14 @@
   "name": "thought-shower",
   "type": "module",
   "scripts": {
-    "start": "bun run mcp-server.ts"
+    "start": "bun run mcp-server.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "typescript": "^6.0.3"
   }
 }

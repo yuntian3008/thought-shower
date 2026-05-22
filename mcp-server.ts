@@ -12,6 +12,8 @@ import {
   writePending,
   readResponse,
   removeResponse,
+  type Config,
+  type SessionInfo,
 } from "./scripts/telegram-bridge/store";
 
 const DATA_DIR = join(homedir(), ".claude", "thought-shower", "telegram-bridge");
@@ -30,16 +32,16 @@ function err(text: string) {
   return { content: [{ type: "text" as const, text }], isError: true };
 }
 
-async function loadConfig() {
+async function loadConfig(): Promise<Config | null> {
   const file = Bun.file(join(DATA_DIR, "config.json"));
   if (!(await file.exists())) return null;
-  return file.json();
+  return file.json() as Promise<Config>;
 }
 
-async function loadSessions(): Promise<Record<string, { topicId: number; topicName: string; createdAt: string }>> {
+async function loadSessions(): Promise<Record<string, SessionInfo>> {
   const file = Bun.file(join(DATA_DIR, "sessions.json"));
   if (!(await file.exists())) return {};
-  return file.json();
+  return file.json() as Promise<Record<string, SessionInfo>>;
 }
 
 async function readPid(): Promise<number | null> {
@@ -58,15 +60,24 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-async function resolveSession(sessionName: string) {
+type ResolveResult =
+  | { ok: false; error: string }
+  | { ok: true; config: Config; session: SessionInfo; sessionName: string };
+
+async function resolveSession(sessionName: string): Promise<ResolveResult> {
   const config = await loadConfig();
-  if (!config) return { error: "Not configured. Run the setup CLI first." };
+  if (!config)
+    return { ok: false, error: "Not configured. Run the setup CLI first." };
 
   const sessions = await loadSessions();
   const session = sessions[sessionName];
-  if (!session) return { error: `Session "${sessionName}" not found. Use telegram_init first.` };
+  if (!session)
+    return {
+      ok: false,
+      error: `Session "${sessionName}" not found. Use telegram_init first.`,
+    };
 
-  return { config, session, sessionName };
+  return { ok: true, config, session, sessionName };
 }
 
 const server = new Server(
@@ -162,7 +173,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       if (!sessionName) return err("session is required");
 
       const resolved = await resolveSession(sessionName);
-      if ("error" in resolved) return err(resolved.error);
+      if (!resolved.ok) return err(resolved.error);
 
       const bot = new TelegramBot(resolved.config.botToken);
       await bot.sendMessage(resolved.config.groupId, text, resolved.session.topicId);
@@ -176,7 +187,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       if (!sessionName) return err("session is required");
 
       const resolved = await resolveSession(sessionName);
-      if ("error" in resolved) return err(resolved.error);
+      if (!resolved.ok) return err(resolved.error);
 
       const bot = new TelegramBot(resolved.config.botToken);
       await bot.react(resolved.config.groupId, messageId, "👀");
@@ -192,7 +203,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       if (!sessionName) return err("session is required");
 
       const resolved = await resolveSession(sessionName);
-      if ("error" in resolved) return err(resolved.error);
+      if (!resolved.ok) return err(resolved.error);
 
       const questionId = randomBytes(4).toString("hex");
 
