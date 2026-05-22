@@ -3,6 +3,7 @@ import {
   appendInbox,
   ensureDirs,
   getOffset,
+  isProcessAlive,
   listPending,
   loadConfig,
   loadSessions,
@@ -14,11 +15,26 @@ import {
   writeResponse,
 } from "./store";
 
+const GC_INTERVAL_MS = 5 * 60 * 1000;
 const FREE_TEXT_PREVIEW_MAX = 80;
 
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
   return text.slice(0, max - 1) + "…";
+}
+
+async function gcOrphanPendings(bot: TelegramBot) {
+  const pendings = await listPending();
+  for (const { id, data } of pendings) {
+    if (isProcessAlive(data.mcpPid)) continue;
+    await removePending(id);
+    bot
+      .editMessageText(data.chatId, data.messageId, "❌ Session ended")
+      .catch(() => {});
+    console.error(
+      `[telegram-bridge] gc removed orphan pending: ${id} (pid ${data.mcpPid} dead)`,
+    );
+  }
 }
 
 async function main() {
@@ -34,8 +50,15 @@ async function main() {
 
   let offset = await getOffset();
 
+  const gcTimer = setInterval(() => {
+    gcOrphanPendings(bot).catch((e) =>
+      console.error(`[telegram-bridge] gc error: ${e}`),
+    );
+  }, GC_INTERVAL_MS);
+
   const shutdown = async () => {
     console.error("[telegram-bridge] shutting down");
+    clearInterval(gcTimer);
     await removePid();
     process.exit(0);
   };
