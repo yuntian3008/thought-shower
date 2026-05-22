@@ -135,6 +135,58 @@ export async function isDaemonRunning(): Promise<boolean> {
   }
 }
 
+// --- Questions (ask_telegram IPC) ---
+
+const PENDING_DIR = join(DATA_DIR, "pending");
+const RESPONSES_DIR = join(DATA_DIR, "responses");
+
+export { PENDING_DIR, RESPONSES_DIR };
+
+export interface PendingQuestion {
+  chatId: number;
+  messageId: number;
+  topicId: number;
+  options: { label: string; description?: string }[];
+}
+
+export async function writePending(id: string, data: PendingQuestion) {
+  await mkdir(PENDING_DIR, { recursive: true });
+  await Bun.write(join(PENDING_DIR, `${id}.json`), JSON.stringify(data));
+}
+
+export async function readPending(id: string): Promise<PendingQuestion | null> {
+  const file = Bun.file(join(PENDING_DIR, `${id}.json`));
+  if (!(await file.exists())) return null;
+  return file.json();
+}
+
+export async function removePending(id: string) {
+  const { unlink } = await import("node:fs/promises");
+  await unlink(join(PENDING_DIR, `${id}.json`)).catch(() => {});
+}
+
+export interface QuestionResponse {
+  label: string;
+  index: number;
+  timestamp: number;
+}
+
+export async function writeResponse(id: string, data: QuestionResponse) {
+  await mkdir(RESPONSES_DIR, { recursive: true });
+  await Bun.write(join(RESPONSES_DIR, `${id}.json`), JSON.stringify(data));
+}
+
+export async function readResponse(id: string): Promise<QuestionResponse | null> {
+  const file = Bun.file(join(RESPONSES_DIR, `${id}.json`));
+  if (!(await file.exists())) return null;
+  return file.json();
+}
+
+export async function removeResponse(id: string) {
+  const { unlink } = await import("node:fs/promises");
+  await unlink(join(RESPONSES_DIR, `${id}.json`)).catch(() => {});
+}
+
 // --- Helpers ---
 
 function sanitize(name: string): string {

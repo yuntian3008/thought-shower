@@ -5,9 +5,12 @@ import {
   getOffset,
   loadConfig,
   loadSessions,
+  readPending,
+  removePending,
   removePid,
   saveOffset,
   writePid,
+  writeResponse,
 } from "./store";
 
 async function main() {
@@ -43,6 +46,42 @@ async function main() {
 
       for (const u of updates) {
         offset = u.update_id + 1;
+
+        if (u.callback_query) {
+          const cb = u.callback_query;
+          const data = cb.data ?? "";
+          const match = data.match(/^ask:([^:]+):(\d+)$/);
+          if (match) {
+            const [, questionId, indexStr] = match;
+            const pending = await readPending(questionId);
+            if (pending) {
+              const index = Number(indexStr);
+              const label = pending.options[index]?.label ?? `Option ${index}`;
+
+              await writeResponse(questionId, {
+                label,
+                index,
+                timestamp: Date.now(),
+              });
+              await removePending(questionId);
+
+              bot.answerCallbackQuery(cb.id, label).catch(() => {});
+              bot
+                .editMessageText(
+                  pending.chatId,
+                  pending.messageId,
+                  `✅ ${label}`,
+                )
+                .catch(() => {});
+
+              console.error(`[telegram-bridge] answer: ${questionId} → ${label}`);
+            } else {
+              bot.answerCallbackQuery(cb.id, "Expired").catch(() => {});
+            }
+          }
+          continue;
+        }
+
         const msg = u.message;
         if (!msg) continue;
         if (msg.chat.id !== config.groupId) continue;

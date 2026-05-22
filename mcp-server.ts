@@ -6,7 +6,13 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { join } from "path";
 import { homedir } from "os";
+import { randomBytes } from "crypto";
 import { TelegramBot } from "./scripts/telegram-bridge/telegram";
+import {
+  writePending,
+  readResponse,
+  removeResponse,
+} from "./scripts/telegram-bridge/store";
 
 const DATA_DIR = join(homedir(), ".claude", "thought-shower", "telegram-bridge");
 const INBOX_DIR = join(DATA_DIR, "inbox");
@@ -96,6 +102,30 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
+      name: "ask_telegram",
+      description: "Ask the user a question via Telegram with inline button options. Blocks until the user taps a button. Use for decisions, confirmations, or choosing between approaches.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          question: { type: "string", description: "The question to ask" },
+          header: { type: "string", description: "Short label shown above the question (e.g. 'Auth method', 'Approach')" },
+          options: {
+            type: "array",
+            description: "2-4 options to choose from",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string", description: "Button text (1-5 words)" },
+                description: { type: "string", description: "Explanation shown in the message body" },
+              },
+              required: ["label"],
+            },
+          },
+        },
+        required: ["question", "options"],
+      },
+    },
+    {
       name: "telegram_init",
       description: "Create or reuse a Telegram topic for a session name and set it as active.",
       inputSchema: {
@@ -143,6 +173,65 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       const bot = new TelegramBot(config.botToken);
       await bot.react(config.groupId, messageId, "✅");
       return ok("Seen");
+    }
+
+    if (tool === "ask_telegram") {
+      const question = a.question as string;
+      const header = (a.header as string) ?? "";
+      const options = a.options as { label: string; description?: string }[];
+      if (!question || !options?.length) return err("question and options are required");
+
+      const config = await loadConfig();
+      if (!config) return err("Not configured.");
+
+      const activeName = await getActive();
+      if (!activeName) return err("No active session.");
+
+      const sessions = await loadSessions();
+      const session = sessions[activeName];
+      if (!session) return err(`Session "${activeName}" not found.`);
+
+      const questionId = randomBytes(4).toString("hex");
+
+      const lines = [];
+      if (header) lines.push(`📋 *${header}*\n`);
+      lines.push(question + "\n");
+      for (let i = 0; i < options.length; i++) {
+        const opt = options[i];
+        lines.push(`${i + 1}. *${opt.label}*${opt.description ? ` — ${opt.description}` : ""}`);
+      }
+
+      const buttons = options.map((opt, i) => ({
+        text: opt.label,
+        callback_data: `ask:${questionId}:${i}`,
+      }));
+      const rows = buttons.length <= 3
+        ? [buttons]
+        : [buttons.slice(0, 2), buttons.slice(2)];
+
+      const bot = new TelegramBot(config.botToken);
+      const sent = await bot.sendQuestion(
+        config.groupId,
+        lines.join("\n"),
+        rows,
+        session.topicId,
+      );
+
+      await writePending(questionId, {
+        chatId: config.groupId,
+        messageId: sent.message_id,
+        topicId: session.topicId,
+        options,
+      });
+
+      while (true) {
+        const response = await readResponse(questionId);
+        if (response) {
+          await removeResponse(questionId);
+          return ok(JSON.stringify({ answer: response.label, index: response.index }));
+        }
+        await Bun.sleep(2000);
+      }
     }
 
     if (tool === "telegram_daemon") {

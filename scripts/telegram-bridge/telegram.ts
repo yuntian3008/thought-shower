@@ -9,9 +9,17 @@ export interface TgMessage {
   text?: string;
 }
 
+export interface TgCallbackQuery {
+  id: string;
+  from: { id: number; first_name: string; username?: string };
+  message?: TgMessage;
+  data?: string;
+}
+
 export interface TgUpdate {
   update_id: number;
   message?: TgMessage;
+  callback_query?: TgCallbackQuery;
 }
 
 export class TelegramBot {
@@ -29,7 +37,7 @@ export class TelegramBot {
     return this.call<TgUpdate[]>("getUpdates", {
       offset,
       timeout,
-      allowed_updates: ["message"],
+      allowed_updates: ["message", "callback_query"],
     });
   }
 
@@ -38,6 +46,37 @@ export class TelegramBot {
       chat_id: chatId,
       text,
       message_thread_id: topicId,
+      parse_mode: "Markdown",
+    });
+  }
+
+  async sendQuestion(
+    chatId: number,
+    text: string,
+    buttons: { text: string; callback_data: string }[][],
+    topicId?: number,
+  ) {
+    return this.call<TgMessage>("sendMessage", {
+      chat_id: chatId,
+      text,
+      message_thread_id: topicId,
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: buttons },
+    });
+  }
+
+  async answerCallbackQuery(callbackQueryId: string, text?: string) {
+    await this.call("answerCallbackQuery", {
+      callback_query_id: callbackQueryId,
+      ...(text ? { text } : {}),
+    });
+  }
+
+  async editMessageText(chatId: number, messageId: number, text: string) {
+    await this.call("editMessageText", {
+      chat_id: chatId,
+      message_id: messageId,
+      text,
       parse_mode: "Markdown",
     });
   }
