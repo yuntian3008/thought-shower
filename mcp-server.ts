@@ -6,6 +6,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { join } from "path";
 import { homedir } from "os";
+import { TelegramBot } from "./scripts/telegram-bridge/telegram";
 
 const DATA_DIR = join(homedir(), ".claude", "thought-shower", "telegram-bridge");
 const INBOX_DIR = join(DATA_DIR, "inbox");
@@ -53,16 +54,6 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-async function telegramApi(token: string, method: string, params: Record<string, unknown>) {
-  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  });
-  const data = (await res.json()) as { ok: boolean; result: unknown; description?: string };
-  if (!data.ok) throw new Error(`Telegram ${method}: ${data.description}`);
-  return data.result;
-}
 
 const server = new Server(
   { name: "thought-shower-telegram", version: "1.0.0" },
@@ -126,12 +117,8 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       const session = sessions[activeName];
       if (!session) return err(`Session "${activeName}" not found.`);
 
-      await telegramApi(config.botToken, "sendMessage", {
-        chat_id: config.groupId,
-        text,
-        message_thread_id: session.topicId,
-        parse_mode: "Markdown",
-      });
+      const bot = new TelegramBot(config.botToken);
+      await bot.sendMessage(config.groupId, text, session.topicId);
       return ok(`Sent to ${activeName}`);
     }
 
@@ -188,10 +175,8 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         return ok(`Reusing topic "${sessions[name].topicName}" (ID: ${sessions[name].topicId})`);
       }
 
-      const result = (await telegramApi(config.botToken, "createForumTopic", {
-        chat_id: config.groupId,
-        name,
-      })) as { message_thread_id: number; name: string };
+      const bot = new TelegramBot(config.botToken);
+      const result = await bot.createForumTopic(config.groupId, name);
 
       sessions[name] = {
         topicId: result.message_thread_id,
@@ -201,11 +186,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       await Bun.write(join(DATA_DIR, "sessions.json"), JSON.stringify(sessions, null, 2));
       await Bun.write(join(DATA_DIR, "active"), name);
 
-      await telegramApi(config.botToken, "sendMessage", {
-        chat_id: config.groupId,
-        text: "Session started.",
-        message_thread_id: result.message_thread_id,
-      });
+      await bot.sendMessage(config.groupId, "Session started.", result.message_thread_id);
 
       return ok(`Created topic "${name}" (ID: ${result.message_thread_id})`);
     }
