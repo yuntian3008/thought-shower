@@ -15,8 +15,12 @@ import {
 } from "./scripts/telegram-bridge/store";
 
 const DATA_DIR = join(homedir(), ".claude", "thought-shower", "telegram-bridge");
-const INBOX_DIR = join(DATA_DIR, "inbox");
 const DAEMON_PATH = join(import.meta.dir, "scripts", "telegram-bridge", "daemon.ts");
+
+const SESSION_PARAM = {
+  type: "string",
+  description: "Session name (worktree basename). Required — pass the name from telegram_init.",
+} as const;
 
 function ok(text: string) {
   return { content: [{ type: "text" as const, text }] };
@@ -38,12 +42,6 @@ async function loadSessions(): Promise<Record<string, { topicId: number; topicNa
   return file.json();
 }
 
-async function getActive(): Promise<string | null> {
-  const file = Bun.file(join(DATA_DIR, "active"));
-  if (!(await file.exists())) return null;
-  return (await file.text()).trim() || null;
-}
-
 async function readPid(): Promise<number | null> {
   const file = Bun.file(join(DATA_DIR, "daemon.pid"));
   if (!(await file.exists())) return null;
@@ -60,6 +58,16 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
+async function resolveSession(sessionName: string) {
+  const config = await loadConfig();
+  if (!config) return { error: "Not configured. Run the setup CLI first." };
+
+  const sessions = await loadSessions();
+  const session = sessions[sessionName];
+  if (!session) return { error: `Session "${sessionName}" not found. Use telegram_init first.` };
+
+  return { config, session, sessionName };
+}
 
 const server = new Server(
   { name: "thought-shower-telegram", version: "1.0.0" },
@@ -70,13 +78,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "send_telegram",
-      description: "Send a message to the active Telegram session topic. Telegram renders Markdown (inline code, bold, italic, code blocks). Max 4096 chars per message — if the reply is longer, call this tool multiple times with self-contained sections.",
+      description: "Send a message to a Telegram session topic. Telegram renders Markdown (inline code, bold, italic, code blocks). Max 4096 chars per message — if the reply is longer, call this tool multiple times with self-contained sections.",
       inputSchema: {
         type: "object" as const,
         properties: {
           text: { type: "string", description: "The message text to send" },
+          session: SESSION_PARAM,
         },
-        required: ["text"],
+        required: ["text", "session"],
       },
     },
     {
@@ -97,8 +106,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         type: "object" as const,
         properties: {
           messageId: { type: "number", description: "The messageId from the inbox JSON line" },
+          session: SESSION_PARAM,
         },
-        required: ["messageId"],
+        required: ["messageId", "session"],
       },
     },
     {
@@ -121,13 +131,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
               required: ["label"],
             },
           },
+          session: SESSION_PARAM,
         },
-        required: ["question", "options"],
+        required: ["question", "options", "session"],
       },
     },
     {
       name: "telegram_init",
-      description: "Create or reuse a Telegram topic for a session name and set it as active.",
+      description: "Create or reuse a Telegram topic for a session name.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -146,32 +157,29 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   try {
     if (tool === "send_telegram") {
       const text = a.text as string;
+      const sessionName = a.session as string;
       if (!text) return err("text is required");
+      if (!sessionName) return err("session is required");
 
-      const config = await loadConfig();
-      if (!config) return err("Not configured. Run the setup CLI first.");
+      const resolved = await resolveSession(sessionName);
+      if ("error" in resolved) return err(resolved.error);
 
-      const activeName = await getActive();
-      if (!activeName) return err("No active session. Use telegram_init first.");
-
-      const sessions = await loadSessions();
-      const session = sessions[activeName];
-      if (!session) return err(`Session "${activeName}" not found.`);
-
-      const bot = new TelegramBot(config.botToken);
-      await bot.sendMessage(config.groupId, text, session.topicId);
-      return ok(`Sent to ${activeName}`);
+      const bot = new TelegramBot(resolved.config.botToken);
+      await bot.sendMessage(resolved.config.groupId, text, resolved.session.topicId);
+      return ok(`Sent to ${sessionName}`);
     }
 
     if (tool === "telegram_seen") {
       const messageId = a.messageId as number;
+      const sessionName = a.session as string;
       if (!messageId) return err("messageId is required");
+      if (!sessionName) return err("session is required");
 
-      const config = await loadConfig();
-      if (!config) return err("Not configured.");
+      const resolved = await resolveSession(sessionName);
+      if ("error" in resolved) return err(resolved.error);
 
-      const bot = new TelegramBot(config.botToken);
-      await bot.react(config.groupId, messageId, "👀");
+      const bot = new TelegramBot(resolved.config.botToken);
+      await bot.react(resolved.config.groupId, messageId, "👀");
       return ok("Seen");
     }
 
@@ -179,17 +187,12 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       const question = a.question as string;
       const header = (a.header as string) ?? "";
       const options = a.options as { label: string; description?: string }[];
+      const sessionName = a.session as string;
       if (!question || !options?.length) return err("question and options are required");
+      if (!sessionName) return err("session is required");
 
-      const config = await loadConfig();
-      if (!config) return err("Not configured.");
-
-      const activeName = await getActive();
-      if (!activeName) return err("No active session.");
-
-      const sessions = await loadSessions();
-      const session = sessions[activeName];
-      if (!session) return err(`Session "${activeName}" not found.`);
+      const resolved = await resolveSession(sessionName);
+      if ("error" in resolved) return err(resolved.error);
 
       const questionId = randomBytes(4).toString("hex");
 
@@ -209,18 +212,18 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         ? [buttons]
         : [buttons.slice(0, 2), buttons.slice(2)];
 
-      const bot = new TelegramBot(config.botToken);
+      const bot = new TelegramBot(resolved.config.botToken);
       const sent = await bot.sendQuestion(
-        config.groupId,
+        resolved.config.groupId,
         lines.join("\n"),
         rows,
-        session.topicId,
+        resolved.session.topicId,
       );
 
       await writePending(questionId, {
-        chatId: config.groupId,
+        chatId: resolved.config.groupId,
         messageId: sent.message_id,
-        topicId: session.topicId,
+        topicId: resolved.session.topicId,
         options,
       });
 
@@ -283,7 +286,6 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       const sessions = await loadSessions();
 
       if (sessions[name]) {
-        await Bun.write(join(DATA_DIR, "active"), name);
         return ok(`Reusing topic "${sessions[name].topicName}" (ID: ${sessions[name].topicId})`);
       }
 
@@ -296,7 +298,6 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         createdAt: new Date().toISOString(),
       };
       await Bun.write(join(DATA_DIR, "sessions.json"), JSON.stringify(sessions, null, 2));
-      await Bun.write(join(DATA_DIR, "active"), name);
 
       await bot.sendMessage(config.groupId, "Session started.", result.message_thread_id);
 

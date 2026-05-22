@@ -11,7 +11,7 @@ Start receiving Telegram messages in this Claude Code session.
 
 1. **Check daemon** — call MCP tool `telegram_daemon` with `action: "status"`. If not running, call with `action: "start"`.
 
-2. **Derive session name** — run `basename $(git rev-parse --show-toplevel)` to get the worktree name. Sanitize: replace non-alphanumeric chars except `-` and `_` with `_`.
+2. **Derive session name** — run `basename $(git rev-parse --show-toplevel)` to get the worktree name. Sanitize: replace non-alphanumeric chars except `-` and `_` with `_`. **Remember this name — pass it as `session` to every MCP tool call below.**
 
 3. **Init session** — call MCP tool `telegram_init` with `name: <session-name>`.
 
@@ -25,6 +25,8 @@ Start receiving Telegram messages in this Claude Code session.
    ```json
    {"from":"Thien","text":"message here","ts":1716388800,"messageId":42}
    ```
-   First, call MCP tool `telegram_seen` with the `messageId` to mark it as read (✅ reaction). Then read the message in the context of the current project and respond helpfully.
+   First, call MCP tool `telegram_seen` with `messageId` and `session: <session-name>`. Then read the message in the context of the current project and respond helpfully.
 
-8. **Send replies** — call MCP tool `send_telegram` with the reply text. Telegram has a 4096 character limit per message. Keep replies concise. If the answer is long, split it into multiple `send_telegram` calls yourself — each one a self-contained section with complete formatting.
+8. **Send replies** — call MCP tool `send_telegram` with the reply text and `session: <session-name>`. Telegram has a 4096 character limit per message. Keep replies concise. If the answer is long, split it into multiple `send_telegram` calls yourself — each one a self-contained section with complete formatting.
+
+9. **Ask questions** — when you need the user's input, call MCP tool `ask_telegram` with `question`, `options`, and `session: <session-name>`. The tool blocks until the user taps a button in Telegram.
