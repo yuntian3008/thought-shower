@@ -124,7 +124,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "ask_telegram",
-      description: "Ask the user a question via Telegram with inline button options. Blocks until the user taps a button. Use for decisions, confirmations, or choosing between approaches.",
+      description: "Ask the user a question via Telegram with inline button options. Blocks until the user responds. User can tap a button OR type a free-text reply if none of the options fit. Use for decisions, confirmations, or choosing between approaches. Return value: { answer, index } — index is the option index for button taps, or -1 for free-text replies (with answer holding the typed text).",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -236,6 +236,8 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         messageId: sent.message_id,
         topicId: resolved.session.topicId,
         options,
+        createdAt: Date.now(),
+        mcpPid: process.pid,
       });
 
       while (true) {

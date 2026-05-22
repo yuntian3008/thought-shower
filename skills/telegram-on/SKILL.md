@@ -29,4 +29,4 @@ Start receiving Telegram messages in this Claude Code session.
 
 8. **Send replies** — call MCP tool `send_telegram` with the reply text and `session: <session-name>`. Telegram has a 4096 character limit per message. Keep replies concise. If the answer is long, split it into multiple `send_telegram` calls yourself — each one a self-contained section with complete formatting.
 
-9. **Ask questions** — when you need the user's input, call MCP tool `ask_telegram` with `question`, `options`, and `session: <session-name>`. The tool blocks until the user taps a button in Telegram.
+9. **Ask questions** — when you need the user's input, call MCP tool `ask_telegram` with `question`, `options`, and `session: <session-name>`. The tool blocks until the user responds. The user can tap a button OR type a free-text reply if none of the options fit. Return value is `{ answer, index }` — `index` is the button index (0-based), or `-1` when the user typed a free-text reply (with `answer` holding the typed text).

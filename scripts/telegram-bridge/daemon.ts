@@ -3,6 +3,7 @@ import {
   appendInbox,
   ensureDirs,
   getOffset,
+  listPending,
   loadConfig,
   loadSessions,
   readPending,
@@ -12,6 +13,13 @@ import {
   writePid,
   writeResponse,
 } from "./store";
+
+const FREE_TEXT_PREVIEW_MAX = 80;
+
+function truncate(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max - 1) + "…";
+}
 
 async function main() {
   const config = await loadConfig();
@@ -91,6 +99,38 @@ async function main() {
 
         const sessionName = topicToSession.get(msg.message_thread_id);
         if (!sessionName) continue;
+
+        const msgTimestampMs = msg.date * 1000;
+        const pendings = await listPending();
+        const matched = pendings
+          .filter(
+            (p) =>
+              p.data.topicId === msg.message_thread_id &&
+              p.data.createdAt < msgTimestampMs,
+          )
+          .sort((a, b) => a.data.createdAt - b.data.createdAt)[0];
+
+        if (matched && msg.text) {
+          const preview = truncate(msg.text, FREE_TEXT_PREVIEW_MAX);
+          await writeResponse(matched.id, {
+            label: msg.text,
+            index: -1,
+            timestamp: Date.now(),
+          });
+          await removePending(matched.id);
+          bot
+            .editMessageText(
+              matched.data.chatId,
+              matched.data.messageId,
+              `✅ 💬 ${preview}`,
+            )
+            .catch(() => {});
+          bot.react(config.groupId, msg.message_id, "👌").catch(() => {});
+          console.error(
+            `[telegram-bridge] free-text answer: ${matched.id} → ${preview}`,
+          );
+          continue;
+        }
 
         const line = JSON.stringify({
           from: msg.from?.first_name ?? "Unknown",

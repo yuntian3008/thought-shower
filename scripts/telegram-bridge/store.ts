@@ -147,6 +147,8 @@ export interface PendingQuestion {
   messageId: number;
   topicId: number;
   options: { label: string; description?: string }[];
+  createdAt: number;
+  mcpPid: number;
 }
 
 export async function writePending(id: string, data: PendingQuestion) {
@@ -163,6 +165,21 @@ export async function readPending(id: string): Promise<PendingQuestion | null> {
 export async function removePending(id: string) {
   const { unlink } = await import("node:fs/promises");
   await unlink(join(PENDING_DIR, `${id}.json`)).catch(() => {});
+}
+
+export async function listPending(): Promise<
+  { id: string; data: PendingQuestion }[]
+> {
+  const { readdir } = await import("node:fs/promises");
+  const files = await readdir(PENDING_DIR).catch(() => [] as string[]);
+  const results: { id: string; data: PendingQuestion }[] = [];
+  for (const name of files) {
+    if (!name.endsWith(".json")) continue;
+    const id = name.slice(0, -5);
+    const data = await readPending(id);
+    if (data) results.push({ id, data });
+  }
+  return results;
 }
 
 export interface QuestionResponse {
