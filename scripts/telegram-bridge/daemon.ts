@@ -1,4 +1,5 @@
 import { TelegramBot } from "./telegram";
+import type { TgMessage, PhotoSize } from "./telegram";
 import { escapeMarkdownV2 } from "./markdown";
 import {
   appendInbox,
@@ -15,6 +16,28 @@ import {
   writePid,
   writeResponse,
 } from "./store";
+
+export const MEDIA_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function effectiveText(msg: TgMessage): string {
+  return msg.text ?? msg.caption ?? "";
+}
+
+const MIME_EXT: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+};
+
+export function pickPhotoExt(mime: string | undefined): string {
+  if (!mime) return ".jpg";
+  return MIME_EXT[mime] ?? ".jpg";
+}
+
+export function pickPhoto(sizes: PhotoSize[] | undefined): PhotoSize | null {
+  if (!sizes || sizes.length === 0) return null;
+  return sizes[sizes.length - 1];
+}
 
 const GC_INTERVAL_MS = 5 * 60 * 1000;
 const FREE_TEXT_PREVIEW_MAX = 80;

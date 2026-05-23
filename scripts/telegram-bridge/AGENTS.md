@@ -13,6 +13,7 @@ Implements the Telegram bridge daemon and its supporting modules. The daemon pol
 | `cli.ts` | `bun cli.ts` commands: `setup`, `start`, `stop`, `status` |
 | `store.spec.ts` | Unit tests for store helpers (sanitizeFilename, mediaPath, gcInboxMedia) |
 | `telegram.spec.ts` | Unit tests for TelegramBot (getFile, downloadFile, sendPhoto, sendDocument) |
+| `daemon.spec.ts` | Unit tests for daemon pure helpers (effectiveText, pickPhoto, pickPhotoExt) |
 
 ## State layout (lives outside plugin cache)
 
@@ -41,3 +42,7 @@ Implements the Telegram bridge daemon and its supporting modules. The daemon pol
 - `TelegramBot.sendPhoto` and `TelegramBot.sendDocument` post multipart via `buildMediaForm` (builds the `FormData`) and `callForm` (POSTs and throws on `!ok`).
 - `buildMediaForm` materialises `BunFile` bytes into a `File` object to preserve the filename — Bun's `FormData.append` ignores the third arg for `BunFile`.
 - `TgMessage` carries `caption?`, `photo?: PhotoSize[]`, and `document?: TgDocument` for multimedia messages. `PhotoSize` and `TgDocument` are exported interfaces.
+- `effectiveText(msg)` returns `msg.text ?? msg.caption ?? ""` — use this in the daemon loop instead of accessing `.text` directly.
+- `pickPhoto(sizes)` returns the last element of `PhotoSize[]` (largest, per Telegram convention) or `null` for empty/undefined input.
+- `pickPhotoExt(mime)` maps a MIME type to a file extension (`.jpg` fallback for unknown or undefined).
+- `MEDIA_TTL_MS` (exported constant, 7 days in ms) is used by the daemon's GC interval when calling `gcInboxMedia`.
