@@ -1,5 +1,21 @@
 const BASE = "https://api.telegram.org/bot";
 
+export interface PhotoSize {
+  file_id: string;
+  file_unique_id: string;
+  width: number;
+  height: number;
+  file_size?: number;
+}
+
+export interface TgDocument {
+  file_id: string;
+  file_unique_id: string;
+  file_name?: string;
+  mime_type?: string;
+  file_size?: number;
+}
+
 export interface TgMessage {
   message_id: number;
   message_thread_id?: number;
@@ -7,6 +23,9 @@ export interface TgMessage {
   chat: { id: number; title?: string; type: string };
   date: number;
   text?: string;
+  caption?: string;
+  photo?: PhotoSize[];
+  document?: TgDocument;
 }
 
 export interface TgCallbackQuery {
@@ -94,6 +113,95 @@ export class TelegramBot {
       "createForumTopic",
       { chat_id: chatId, name },
     );
+  }
+
+  async getFile(fileId: string) {
+    return this.call<{ file_id: string; file_path?: string }>("getFile", {
+      file_id: fileId,
+    });
+  }
+
+  async downloadFile(filePath: string, destPath: string): Promise<void> {
+    const { mkdir, writeFile } = await import("node:fs/promises");
+    const { dirname } = await import("path");
+    await mkdir(dirname(destPath), { recursive: true });
+    // File downloads use /file/bot<TOKEN>/ not /bot<TOKEN>/
+    const fileUrl = this.url.replace("/bot", "/file/bot") + "/" + filePath;
+    const res = await fetch(fileUrl);
+    if (!res.ok) {
+      throw new Error(`downloadFile ${res.status}: ${await res.text()}`);
+    }
+    const buf = new Uint8Array(await res.arrayBuffer());
+    await writeFile(destPath, buf);
+  }
+
+  async sendPhoto(
+    chatId: number,
+    localPath: string,
+    caption?: string,
+    topicId?: number,
+  ) {
+    const form = await this.buildMediaForm(chatId, "photo", localPath, caption, topicId);
+    return this.callForm<TgMessage>("sendPhoto", form);
+  }
+
+  async sendDocument(
+    chatId: number,
+    localPath: string,
+    caption?: string,
+    topicId?: number,
+    filename?: string,
+  ) {
+    const form = await this.buildMediaForm(
+      chatId,
+      "document",
+      localPath,
+      caption,
+      topicId,
+      filename,
+    );
+    return this.callForm<TgMessage>("sendDocument", form);
+  }
+
+  private async buildMediaForm(
+    chatId: number,
+    field: "photo" | "document",
+    localPath: string,
+    caption: string | undefined,
+    topicId: number | undefined,
+    filename?: string,
+  ): Promise<FormData> {
+    const { basename } = await import("path");
+    const bunFile = Bun.file(localPath);
+    const name = filename ?? basename(localPath);
+    // Bun's FormData.append ignores the 3rd filename arg for BunFile, so we
+    // materialise the bytes into a real File. The whole file buffers into
+    // memory — Telegram's 50 MB upload cap is the practical bound.
+    const file = new File([await bunFile.arrayBuffer()], name, {
+      type: bunFile.type,
+    });
+    const form = new FormData();
+    form.append("chat_id", String(chatId));
+    if (topicId !== undefined) form.append("message_thread_id", String(topicId));
+    if (caption !== undefined) form.append("caption", caption);
+    form.append(field, file);
+    return form;
+  }
+
+  private async callForm<T>(method: string, form: FormData): Promise<T> {
+    const res = await fetch(`${this.url}/${method}`, {
+      method: "POST",
+      body: form,
+    });
+    const data = (await res.json()) as {
+      ok: boolean;
+      result: T;
+      description?: string;
+    };
+    if (!data.ok) {
+      throw new Error(`Telegram ${method}: ${data.description}`);
+    }
+    return data.result;
   }
 
   private async call<T>(
