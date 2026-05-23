@@ -38,8 +38,10 @@ describe("TelegramBot.downloadFile", () => {
   });
 
   test("should GET file URL and write bytes to dest", async () => {
+    const calls: string[] = [];
     const bytes = new Uint8Array([1, 2, 3, 4]);
     globalThis.fetch = mock(async (..._args: unknown[]) => {
+      calls.push(String(_args[0]));
       return new Response(bytes);
     }) as unknown as typeof fetch;
 
@@ -47,8 +49,23 @@ describe("TelegramBot.downloadFile", () => {
     const dest = join(TMP, "out.bin");
     await bot.downloadFile("photos/abc.jpg", dest);
 
+    expect(calls[0]).toBe(
+      "https://api.telegram.org/file/botTOKEN/photos/abc.jpg",
+    );
     const written = await readFile(dest);
     expect(written.length).toBe(4);
     expect(written[0]).toBe(1);
+  });
+
+  test("should throw with status and body when response is not ok", async () => {
+    globalThis.fetch = mock(async (..._args: unknown[]) => {
+      return new Response("not found", { status: 404 });
+    }) as unknown as typeof fetch;
+
+    const bot = new TelegramBot("TOKEN");
+    const dest = join(TMP, "out.bin");
+    await expect(bot.downloadFile("missing.jpg", dest)).rejects.toThrow(
+      "downloadFile 404: not found",
+    );
   });
 });
