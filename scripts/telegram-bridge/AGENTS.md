@@ -6,7 +6,7 @@ Implements the Telegram bridge daemon and its supporting modules. The daemon pol
 
 | File | Purpose |
 |------|---------|
-| `daemon.ts` | Long-running poll loop; dispatches incoming messages to session inboxes |
+| `daemon.ts` | Long-running poll loop; downloads inbound photo/document attachments, resolves free-text answers (via `effectiveText`), dispatches messages to session inboxes, and runs media GC every 5 min |
 | `store.ts` | All filesystem paths and IO helpers (config, sessions, inbox JSONL, media, pending questions, responses) |
 | `telegram.ts` | Thin Telegram Bot API client (sendMessage, getUpdates, etc.) |
 | `markdown.ts` | MarkdownV2 escaping for outgoing messages |
