@@ -20,6 +20,36 @@ import {
 const DATA_DIR = join(homedir(), ".claude", "thought-shower", "telegram-bridge");
 const DAEMON_PATH = join(import.meta.dir, "scripts", "telegram-bridge", "daemon.ts");
 
+const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
+const DOC_MAX_BYTES = 50 * 1024 * 1024;
+
+export type PreCheckResult =
+  | { ok: true; size: number }
+  | { ok: false; error: string };
+
+export async function preCheckMedia(
+  path: string,
+  maxBytes: number,
+): Promise<PreCheckResult> {
+  const { stat } = await import("node:fs/promises");
+  let st;
+  try {
+    st = await stat(path);
+  } catch {
+    return { ok: false, error: `File not found: ${path}` };
+  }
+  if (!st.isFile()) {
+    return { ok: false, error: `Not a regular file: ${path}` };
+  }
+  if (st.size > maxBytes) {
+    return {
+      ok: false,
+      error: `File too large: ${st.size} bytes (max ${maxBytes})`,
+    };
+  }
+  return { ok: true, size: st.size };
+}
+
 const SESSION_PARAM = {
   type: "string",
   description: "Session name (worktree basename). Required — pass the name from telegram_init.",
@@ -146,6 +176,33 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           session: SESSION_PARAM,
         },
         required: ["question", "options", "session"],
+      },
+    },
+    {
+      name: "send_photo",
+      description: "Send a local photo file to the Telegram session topic. Max 10 MB.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          path: { type: "string" },
+          caption: { type: "string" },
+          session: SESSION_PARAM,
+        },
+        required: ["path", "session"],
+      },
+    },
+    {
+      name: "send_document",
+      description: "Send a local file as a Telegram document to the session topic. Max 50 MB.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          path: { type: "string" },
+          caption: { type: "string" },
+          filename: { type: "string" },
+          session: SESSION_PARAM,
+        },
+        required: ["path", "session"],
       },
     },
     {
@@ -318,6 +375,55 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       await bot.sendMessage(config.groupId, "Session started\\.", result.message_thread_id);
 
       return ok(`Created topic "${name}" (ID: ${result.message_thread_id})`);
+    }
+
+    if (tool === "send_photo") {
+      const path = a.path as string;
+      const caption = a.caption as string | undefined;
+      const sessionName = a.session as string;
+      if (!path) return err("path is required");
+      if (!sessionName) return err("session is required");
+
+      const pre = await preCheckMedia(path, PHOTO_MAX_BYTES);
+      if (!pre.ok) return err(pre.error);
+
+      const resolved = await resolveSession(sessionName);
+      if (!resolved.ok) return err(resolved.error);
+
+      const bot = new TelegramBot(resolved.config.botToken);
+      await bot.sendPhoto(
+        resolved.config.groupId,
+        path,
+        caption,
+        resolved.session.topicId,
+      );
+      return ok(`Photo sent (${pre.size} bytes)`);
+    }
+
+    if (tool === "send_document") {
+      const path = a.path as string;
+      const caption = a.caption as string | undefined;
+      const filename = a.filename as string | undefined;
+      const sessionName = a.session as string;
+      if (!path) return err("path is required");
+      if (!sessionName) return err("session is required");
+
+      const pre = await preCheckMedia(path, DOC_MAX_BYTES);
+      if (!pre.ok) return err(pre.error);
+
+      const resolved = await resolveSession(sessionName);
+      if (!resolved.ok) return err(resolved.error);
+
+      const bot = new TelegramBot(resolved.config.botToken);
+      await bot.sendDocument(
+        resolved.config.groupId,
+        path,
+        caption,
+        resolved.session.topicId,
+        filename,
+      );
+      const sentName = filename ?? path.split("/").pop() ?? path;
+      return ok(`Document sent (${pre.size} bytes, name=${sentName})`);
     }
 
     return err(`Unknown tool: ${tool}`);
