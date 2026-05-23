@@ -135,3 +135,55 @@ Revisit when we add a watcher/dashboard command. Until then, the declarative for
 **Symptom:** trying to detect "no PR exists" by checking for empty output fails — you get a non-zero exit instead.
 
 **Fix:** check exit code or use `2>/dev/null || true` carefully (note: this is one of the rare cases where stderr-redirect is fine — `gh pr view` writes a clean error message to stderr that we don't need to parse). For poll loops, always use commands whose stderr we DO care about.
+
+## 15. Bun's `FormData.append` silently ignores the filename arg for `BunFile`
+
+**Symptom:** uploaded a file to Telegram via `form.append("document", Bun.file(path), "custom-name.pdf")` — Telegram receives the file but with the original on-disk basename, not the override.
+
+**Root cause:** `Bun.file(path)` returns a `BunFile`, and `FormData.append` in Bun 1.3.x does not propagate the third `filename` argument when the second is a `BunFile`. The filename is silently taken from the path. No error, no warning.
+
+**Fix:** materialise the bytes into a real `File` object before appending:
+
+```ts
+const bunFile = Bun.file(localPath);
+const file = new File(
+  [await bunFile.arrayBuffer()],
+  filename,
+  { type: bunFile.type },
+);
+form.append(field, file);
+```
+
+The whole file buffers into memory, but Telegram's 50 MB upload cap is the practical bound, so this is fine for `sendPhoto` / `sendDocument`. See `scripts/telegram-bridge/telegram.ts` near the `buildMediaForm` private helper.
+
+## 16. Telegram Bot API has two URL prefixes
+
+**Symptom:** wrote `bot.downloadFile("photos/abc.jpg", dest)` using the same base URL as `getFile` / `sendMessage`. The download returns 404 or HTML.
+
+**Root cause:** Telegram serves JSON method calls and file downloads on different path prefixes of the same host:
+
+- JSON methods → `https://api.telegram.org/bot<TOKEN>/<method>`
+- File downloads → `https://api.telegram.org/file/bot<TOKEN>/<file_path>`
+
+Same token, different path. Easy to miss because the documentation lumps both under "the API."
+
+**Fix:** derive the file URL by replacing `/bot` with `/file/bot` in the stored base, then append the `file_path` returned from `getFile`:
+
+```ts
+const fileUrl = this.url.replace("/bot", "/file/bot") + "/" + filePath;
+```
+
+Note the leading slash in `/bot` — required so the replacement doesn't match inside a token that happens to contain `bot` as a substring.
+
+## 17. `tail -f` on the Telegram inbox JSONL replays old messages on a fresh Monitor
+
+**Symptom:** running `/thought-shower:telegram-on` in a new session triggers a single Monitor event delivering messages from previous sessions (sometimes dozens of them) as a backlog. The agent risks reacting to stale messages, sending duplicate replies, or `telegram_seen`-spamming the topic.
+
+**Root cause:** `tail -f` (without `-n 0`) defaults to printing the last 10 lines of the file before following — so on first open, every kept inbox line streams through immediately. The skill's Step 6 command uses plain `tail -f`.
+
+**Fix (two layers):**
+
+- **Skill side:** change `skills/telegram-on/SKILL.md` Step 6 to `tail -f -n 0 ~/.claude/thought-shower/telegram-bridge/inbox/<session-name>.jsonl` so the Monitor only emits NEW messages after attach. Backlog stays in the file but doesn't trip the Monitor.
+- **Agent side (until the skill is patched):** when a Monitor event contains multiple newline-separated JSON lines on a fresh `/telegram-on` start, treat them as backlog — do not `telegram_seen` or reply to messageIds older than the session start. Acknowledge the user in one summary message instead of N individual ones.
+
+The inbox file itself is bounded to 100 lines by `appendInbox` in `store.ts`, so the backlog is finite — but 100 replayed messages is still a lot of noise.
