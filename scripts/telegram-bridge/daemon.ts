@@ -4,11 +4,14 @@ import { escapeMarkdownV2 } from "./markdown";
 import {
   appendInbox,
   ensureDirs,
+  ensureMediaDir,
+  gcInboxMedia,
   getOffset,
   isProcessAlive,
   listPending,
   loadConfig,
   loadSessions,
+  mediaPath,
   readPending,
   removePending,
   removePid,
@@ -77,6 +80,9 @@ async function main() {
   const gcTimer = setInterval(() => {
     gcOrphanPendings(bot).catch((e) =>
       console.error(`[telegram-bridge] gc error: ${e}`),
+    );
+    gcInboxMedia(MEDIA_TTL_MS).catch((e) =>
+      console.error(`[telegram-bridge] gc media error: ${e}`),
     );
   }, GC_INTERVAL_MS);
 
@@ -147,6 +153,59 @@ async function main() {
         const sessionName = topicToSession.get(msg.message_thread_id);
         if (!sessionName) continue;
 
+        // Download photo/document if present; null on miss or failure.
+        let mediaInfo: {
+          type: "photo" | "document";
+          path: string;
+          mime: string;
+          size: number;
+          filename: string | null;
+        } | null = null;
+
+        const photo = pickPhoto(msg.photo);
+        if (photo) {
+          try {
+            await ensureMediaDir(sessionName);
+            const fileMeta = await bot.getFile(photo.file_id);
+            if (!fileMeta.file_path) throw new Error("file_path missing");
+            const ext = pickPhotoExt(undefined); // Telegram photos rarely expose mime here; default .jpg
+            const dest = mediaPath(sessionName, msg.message_id, ext);
+            await bot.downloadFile(fileMeta.file_path, dest);
+            mediaInfo = {
+              type: "photo",
+              path: dest,
+              mime: "image/jpeg",
+              size: photo.file_size ?? 0,
+              filename: null,
+            };
+          } catch (e) {
+            console.error(`[telegram-bridge] photo download failed: ${e}`);
+          }
+        } else if (msg.document) {
+          try {
+            await ensureMediaDir(sessionName);
+            const fileMeta = await bot.getFile(msg.document.file_id);
+            if (!fileMeta.file_path) throw new Error("file_path missing");
+            const dest = mediaPath(
+              sessionName,
+              msg.message_id,
+              undefined,
+              msg.document.file_name ?? "file",
+            );
+            await bot.downloadFile(fileMeta.file_path, dest);
+            mediaInfo = {
+              type: "document",
+              path: dest,
+              mime: msg.document.mime_type ?? "application/octet-stream",
+              size: msg.document.file_size ?? 0,
+              filename: msg.document.file_name ?? null,
+            };
+          } catch (e) {
+            console.error(`[telegram-bridge] document download failed: ${e}`);
+          }
+        }
+
+        const text = effectiveText(msg);
         const msgTimestampMs = msg.date * 1000;
         const pendings = await listPending();
         const matched = pendings
@@ -157,10 +216,10 @@ async function main() {
           )
           .sort((a, b) => a.data.createdAt - b.data.createdAt)[0];
 
-        if (matched && msg.text) {
-          const preview = truncate(msg.text, FREE_TEXT_PREVIEW_MAX);
+        if (matched && text) {
+          const preview = truncate(text, FREE_TEXT_PREVIEW_MAX);
           await writeResponse(matched.id, {
-            label: msg.text,
+            label: text,
             index: -1,
             timestamp: Date.now(),
           });
@@ -181,15 +240,16 @@ async function main() {
 
         const line = JSON.stringify({
           from: msg.from?.first_name ?? "Unknown",
-          text: msg.text ?? "[non-text]",
+          text: text || (mediaInfo ? "" : "[non-text]"),
           ts: msg.date,
           messageId: msg.message_id,
+          ...(mediaInfo ? { media: mediaInfo } : {}),
         });
 
         await appendInbox(sessionName, line);
         bot.react(config.groupId, msg.message_id, "👌").catch(() => {});
         console.error(
-          `[telegram-bridge] [${sessionName}] ${msg.from?.first_name}: ${msg.text}`,
+          `[telegram-bridge] [${sessionName}] ${msg.from?.first_name}: ${text || (mediaInfo ? `<${mediaInfo.type}>` : "[non-text]")}`,
         );
       }
 
