@@ -4,8 +4,9 @@ import { mkdir } from "node:fs/promises";
 
 const DATA_DIR = join(homedir(), ".claude", "thought-shower", "telegram-bridge");
 const INBOX_DIR = join(DATA_DIR, "inbox");
+const INBOX_MEDIA_DIR = join(DATA_DIR, "inbox-media");
 
-export { DATA_DIR, INBOX_DIR };
+export { DATA_DIR, INBOX_DIR, INBOX_MEDIA_DIR };
 
 export interface Config {
   botToken: string;
@@ -212,6 +213,52 @@ export async function readResponse(id: string): Promise<QuestionResponse | null>
 export async function removeResponse(id: string) {
   const { unlink } = await import("node:fs/promises");
   await unlink(join(RESPONSES_DIR, `${id}.json`)).catch(() => {});
+}
+
+// --- Media path helpers ---
+
+export function sanitizeFilename(name: string): string {
+  const cleaned = name.replace(/[/\\\0]/g, "").replace(/^\.+/, "");
+  return cleaned.length === 0 ? "file" : cleaned;
+}
+
+export function mediaPath(
+  sessionName: string,
+  messageId: number,
+  ext?: string,
+  filename?: string,
+): string {
+  const sess = sanitize(sessionName);
+  const dir = join(INBOX_MEDIA_DIR, sess);
+  if (filename !== undefined) {
+    return join(dir, `${messageId}-${sanitizeFilename(filename)}`);
+  }
+  return join(dir, `${messageId}${ext ?? ".bin"}`);
+}
+
+export async function ensureMediaDir(sessionName: string): Promise<string> {
+  const dir = join(INBOX_MEDIA_DIR, sanitize(sessionName));
+  await mkdir(dir, { recursive: true });
+  return dir;
+}
+
+export async function gcInboxMedia(ttlMs: number): Promise<void> {
+  const { readdir, unlink, stat: statFn } = await import("node:fs/promises");
+  const sessions = await readdir(INBOX_MEDIA_DIR).catch(() => [] as string[]);
+  const cutoff = Date.now() - ttlMs;
+  for (const sess of sessions) {
+    const dir = join(INBOX_MEDIA_DIR, sess);
+    const files = await readdir(dir).catch(() => [] as string[]);
+    for (const f of files) {
+      const p = join(dir, f);
+      try {
+        const s = await statFn(p);
+        if (s.mtimeMs < cutoff) await unlink(p);
+      } catch {
+        // best-effort per-file
+      }
+    }
+  }
 }
 
 // --- Helpers ---
