@@ -153,7 +153,41 @@ async function main() {
         const sessionName = topicToSession.get(msg.message_thread_id);
         if (!sessionName) continue;
 
-        // Download photo/document if present; null on miss or failure.
+        // Resolve text first; if this message answers a pending question, short-circuit before downloading.
+        const text = effectiveText(msg);
+        const msgTimestampMs = msg.date * 1000;
+        const pendings = await listPending();
+        const matched = pendings
+          .filter(
+            (p) =>
+              p.data.topicId === msg.message_thread_id &&
+              p.data.createdAt < msgTimestampMs,
+          )
+          .sort((a, b) => a.data.createdAt - b.data.createdAt)[0];
+
+        if (matched && text) {
+          const preview = truncate(text, FREE_TEXT_PREVIEW_MAX);
+          await writeResponse(matched.id, {
+            label: text,
+            index: -1,
+            timestamp: Date.now(),
+          });
+          await removePending(matched.id);
+          bot
+            .editMessageText(
+              matched.data.chatId,
+              matched.data.messageId,
+              `✅ 💬 ${escapeMarkdownV2(preview)}`,
+            )
+            .catch(() => {});
+          bot.react(config.groupId, msg.message_id, "👌").catch(() => {});
+          console.error(
+            `[telegram-bridge] free-text answer: ${matched.id} → ${preview}`,
+          );
+          continue;
+        }
+
+        // Not a free-text answer — download media if present, then write to inbox.
         let mediaInfo: {
           type: "photo" | "document";
           path: string;
@@ -203,39 +237,6 @@ async function main() {
           } catch (e) {
             console.error(`[telegram-bridge] document download failed: ${e}`);
           }
-        }
-
-        const text = effectiveText(msg);
-        const msgTimestampMs = msg.date * 1000;
-        const pendings = await listPending();
-        const matched = pendings
-          .filter(
-            (p) =>
-              p.data.topicId === msg.message_thread_id &&
-              p.data.createdAt < msgTimestampMs,
-          )
-          .sort((a, b) => a.data.createdAt - b.data.createdAt)[0];
-
-        if (matched && text) {
-          const preview = truncate(text, FREE_TEXT_PREVIEW_MAX);
-          await writeResponse(matched.id, {
-            label: text,
-            index: -1,
-            timestamp: Date.now(),
-          });
-          await removePending(matched.id);
-          bot
-            .editMessageText(
-              matched.data.chatId,
-              matched.data.messageId,
-              `✅ 💬 ${escapeMarkdownV2(preview)}`,
-            )
-            .catch(() => {});
-          bot.react(config.groupId, msg.message_id, "👌").catch(() => {});
-          console.error(
-            `[telegram-bridge] free-text answer: ${matched.id} → ${preview}`,
-          );
-          continue;
         }
 
         const line = JSON.stringify({
