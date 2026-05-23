@@ -131,24 +131,50 @@ README.md                    # Public docs — kept in sync (see Maintenance)
 - **Project rules are canonical at `.agents/rules/`** (symlinked from `.claude/rules`). Edit canonical source. When adding a `.codex/rules` or `.cursor/rules`, symlink to the same canonical.
 - **MCP state lives in `~/.claude/thought-shower/...`** not inside the plugin cache. Anything the user shouldn't lose on `/plugin update` goes there.
 
-## Auto-maintain AGENTS.md and README.md
+## Keeping docs in sync
 
-After modifying source files, update the matching docs in the SAME change:
+After modifying source files, update the matching docs in the SAME PR. Three artifacts, in order of locality:
 
-- **AGENTS.md** — review the `AGENTS.md` in the same directory as the changed files.
-  - If it exists: update content to reflect the change (new/renamed/removed files, changed responsibilities, updated patterns).
-  - If it doesn't exist: create one describing the directory's purpose, key files, patterns, conventions, and relationships with other modules.
-  - Keep concise — it's a guide for AI agents working in that directory.
+### 1. AGENTS.md (per-directory)
 
-- **README.md** — the public-facing source of truth. Update the matching section when changing:
-  - `commands/*.md` (new/renamed/removed command, or signature change) → `Commands` table
-  - `skills/*/SKILL.md` (new skill, description rewrite, removal) → `Skills` section
-  - `agents/*.md` (added/removed) → `Shipping pipeline` table
-  - `.claude-plugin/plugin.json` (deps changed) → `Required dependencies` table
-  - Pipeline stage behavior in `commands/start.md` or `commands/ship.md` → `Shipping pipeline` table
-  - Top-level file layout → `Layout` block
+Review the `AGENTS.md` in the same directory as the changed files.
 
-Don't ship a PR where AGENTS.md or README.md drifts from source.
+- If it exists: update content to reflect the change (new/renamed/removed files, changed responsibilities, updated patterns).
+- If it doesn't exist: create one describing the directory's purpose, key files, patterns, conventions, and relationships with other modules.
+- Keep concise — it's a guide for AI agents working in that directory.
+
+### 2. README.md (public-facing)
+
+The public source of truth. Update the matching section when:
+
+- `commands/*.md` added/renamed/removed or signature changed → `Reference > Commands` table AND the capability section that owns it
+- `skills/*/SKILL.md` added or description rewritten → `Reference > Skills` table AND the capability section that owns it
+- `agents/*.md` added/removed → `Reference > Agents` table AND the capability section that owns it
+- `mcp-server.ts` MCP tools added/removed → `Reference > MCP tools` table AND the "Reach me on Telegram" section
+- `.claude-plugin/plugin.json` deps changed → `Required dependencies` table
+- Pipeline stage behavior in `commands/start.md` or `commands/ship.md` → "Ship a feature end-to-end" stage table
+- Top-level file layout changed → `Layout` block
+
+### 3. CHANGELOG.md (repo root)
+
+After a PR is merged (or as the final commit before merge), prepend one bullet under today's date heading:
+
+- Format: `- **<type>(<scope>)**: <imperative description> (#<PR-number>)`. PR number is optional if unknown.
+- Use the Conventional Commit type+scope from the PR title.
+- One bullet per logical change. If a PR has multiple unrelated changes, multiple bullets.
+- If today's date heading (`## YYYY-MM-DD`) doesn't exist yet, add it on top of all existing entries.
+- **Skip entries** for `chore`-only PRs that don't affect users or agents (e.g., bumping a lockfile, fixing a comment typo). Anything that changes user-visible behavior, contracts, or layout gets an entry.
+- This rule applies ONLY when modifying this repo. CHANGELOG.md is NOT a plugin feature — never reference it from `commands/` or `skills/`.
+
+### Pre-commit self-check
+
+Before opening a PR for review, verify:
+
+- [ ] AGENTS.md in touched dirs reflects the change
+- [ ] README.md sections matching the touched artifacts are updated
+- [ ] CHANGELOG.md has an entry for this PR (or you've decided it's chore-only and skipped)
+
+Don't ship a PR where any of these drift from source.
 
 ## Run / dev
 
