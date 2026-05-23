@@ -112,7 +112,7 @@ README.md                    # Public docs — kept in sync (see Maintenance)
 
 ### Telegram bridge (MCP server)
 
-`mcp-server.ts` exposes MCP tools (`send_telegram`, `ask_telegram`, `telegram_init`, `telegram_daemon`, `telegram_seen`, `send_photo`, `send_document`) backed by a long-running daemon (`scripts/telegram-bridge/daemon.ts`). State lives at `~/.claude/thought-shower/telegram-bridge/` — outside the plugin cache so it survives updates. Sessions are keyed by worktree basename.
+`mcp-server.ts` exposes MCP tools (`send_telegram`, `send_photo`, `send_document`, `ask_telegram`, `telegram_init`, `telegram_daemon`, `telegram_seen`) backed by a long-running daemon (`scripts/telegram-bridge/daemon.ts`). State lives at `~/.claude/thought-shower/telegram-bridge/` — outside the plugin cache so it survives updates. Sessions are keyed by worktree basename. Inbound photos and documents are downloaded into `inbox-media/<session>/` (TTL 7 days) and surfaced to the agent via an optional `media` field in the inbox JSONL line.
 
 ### Subagent
 

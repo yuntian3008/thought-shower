@@ -12,6 +12,7 @@ A personal Claude Code plugin — commands, pipelines, and skills bundled togeth
 - **`learn` skill** — extract session learnings and route them to canonical homes via `CANONICAL.md`.
 - **`review-turn` skill** — shared review-feedback discipline used by every reviewer turn.
 - **`visualize-as-html` skill** — produce a self-contained HTML artifact when a rendered page beats markdown.
+- **Telegram bridge** (`telegram-on` / `telegram-off`) — receive and send messages via Telegram while away from the terminal. MCP tools: `send_telegram`, `ask_telegram`, `send_photo` (≤10 MB), `send_document` (≤50 MB). Inbound media lands in `~/.claude/thought-shower/telegram-bridge/inbox-media/<session>/`.
 
 ```
 1. Branch setup     2. Finishing          3. Codex review
