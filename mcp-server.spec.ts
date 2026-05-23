@@ -36,4 +36,12 @@ describe("preCheckMedia", () => {
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.size).toBe(500);
   });
+
+  test("should reject when path is a directory", async () => {
+    const p = join(TMP, "dir");
+    await mkdir(p, { recursive: true });
+    const result = await preCheckMedia(p, 1000);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/not a regular file/i);
+  });
 });

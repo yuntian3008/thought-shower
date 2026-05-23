@@ -7,6 +7,7 @@ import {
 import { join } from "path";
 import { homedir } from "os";
 import { randomBytes } from "crypto";
+import { stat } from "node:fs/promises";
 import { TelegramBot } from "./scripts/telegram-bridge/telegram";
 import { escapeMarkdownV2 } from "./scripts/telegram-bridge/markdown";
 import {
@@ -31,7 +32,6 @@ export async function preCheckMedia(
   path: string,
   maxBytes: number,
 ): Promise<PreCheckResult> {
-  const { stat } = await import("node:fs/promises");
   let st;
   try {
     st = await stat(path);
