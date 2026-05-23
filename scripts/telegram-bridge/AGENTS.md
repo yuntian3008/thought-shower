@@ -12,6 +12,7 @@ Implements the Telegram bridge daemon and its supporting modules. The daemon pol
 | `markdown.ts` | MarkdownV2 escaping for outgoing messages |
 | `cli.ts` | `bun cli.ts` commands: `setup`, `start`, `stop`, `status` |
 | `store.spec.ts` | Unit tests for store helpers (sanitizeFilename, mediaPath, gcInboxMedia) |
+| `telegram.spec.ts` | Unit tests for TelegramBot (getFile, downloadFile) |
 
 ## State layout (lives outside plugin cache)
 
@@ -35,3 +36,6 @@ Implements the Telegram bridge daemon and its supporting modules. The daemon pol
 - `mediaPath(sessionName, messageId, ext?, filename?)` returns the full path for a downloaded media file without touching the filesystem; call `ensureMediaDir` first when writing.
 - `gcInboxMedia(ttlMs)` is best-effort: per-file errors are silently swallowed so one bad entry never blocks the rest.
 - Dynamic `import("node:fs/promises")` is used in places where the symbol isn't needed at module load time (GC, pending/response helpers); static `mkdir` import covers the hot path.
+- `TelegramBot.getFile(fileId)` returns `{ file_id, file_path? }` — call this first, then pass the returned `file_path` to `downloadFile`.
+- `TelegramBot.downloadFile(filePath, destPath)` derives the download URL by replacing `/bot` with `/file/bot` in the stored base URL — the Telegram file endpoint is different from the method endpoint.
+- `TgMessage` carries `caption?`, `photo?: PhotoSize[]`, and `document?: TgDocument` for multimedia messages. `PhotoSize` and `TgDocument` are exported interfaces.
