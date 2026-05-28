@@ -20,7 +20,7 @@ Required:
 - skill `thought-shower:brainstorming-lite` (only if `--lite`)
 - skill `superpowers:finishing-a-development-branch`
 - skill `superpowers:receiving-code-review`
-- agent `codex:codex-rescue`
+- agent `thought-shower:codex-reviewer`
 
 `gh` must also be authenticated (`gh auth status`).
 

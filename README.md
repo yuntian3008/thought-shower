@@ -41,7 +41,7 @@ The plugin runs a preflight check on every command and fails fast if any are mis
 | Dep | Provides | Install |
 | --- | --- | --- |
 | [`superpowers`](https://github.com/anthropic-experimental/superpowers) | `brainstorming`, `finishing-a-development-branch`, `receiving-code-review` | `/plugin install superpowers` |
-| [`codex`](https://github.com/openai/codex) | `codex:codex-rescue` agent (Stage 3) | `/plugin install codex` |
+| [`codex`](https://github.com/openai/codex) | `codex-companion.mjs review` script (consumed by `codex-reviewer` agent in Stage 3) | `/plugin install codex` |
 
 `gh` must be authenticated (`gh auth status`). CodeRabbit must be installed on the target repo — Stage 4 hard-requires it and will time out at 30 min if no review posts.
 
@@ -55,7 +55,7 @@ The largest capability today. Six stages, two entry points (`/start` for Stage 1
 | --- | --- | --- |
 | 1. Branch setup | Pick base branch (default `dev`), infer type+slug from description, `git switch -c <type>/<slug> <base>`, invoke brainstorming (or `brainstorming-lite` with `--lite`). Refuses on dirty tree. | `/start` |
 | 2. Finishing | `superpowers:finishing-a-development-branch`; auto-derives PR title+body from branch name + commits; creates draft PR. | `/ship` |
-| 3. Codex turn | Dispatches `codex:codex-rescue` once → `review-turn` triages findings → user fixes → asks "re-run on new HEAD, or move to CR?" → on move-on, posts a summary comment documenting the round so later reviewers see it. | `/ship` |
+| 3. Codex turn | Dispatches `thought-shower:codex-reviewer` once (review-mode wrapper around Codex) → `review-turn` triages findings → user fixes → asks "re-run on new HEAD, or move to CR?" → on move-on, posts a summary comment documenting the round so later reviewers see it. | `/ship` |
 | 4. CodeRabbit turn | Parent runs base-flip + CR-existence polls. Subagent (`coderabbit-shepherd`) runs the thread-resolution loop with `review-turn` per thread + GraphQL resolve mutation. Returns `{status: 'all_resolved' \| 'head_changed' \| 'failed'}`. | `/ship` + `coderabbit-shepherd` |
 | 5. Ready-to-merge | Verifies `state==OPEN`, `isDraft==false`, `baseRef==dev`, all checks green. | `/ship` |
 | 6. Merge handoff | Prints a "ready to merge" summary (title, URL, status) and stops. Never auto-merges. Notifications and merge are your responsibility. | `/ship` |
@@ -132,6 +132,7 @@ Provided by the bundled `mcp-server.ts` (Telegram bridge). Auto-registered via `
 
 | Agent | Caller | Use |
 | --- | --- | --- |
+| `codex-reviewer` | `/ship` Stage 3 | Thin forwarding wrapper around `codex-companion.mjs review --wait`. Review-only — never edits files. Returns Codex stdout verbatim for `review-turn` to triage. |
 | `coderabbit-shepherd` | `/ship` Stage 4 | Threads-only resolve loop. Calls `review-turn` per thread, posts replies + GraphQL resolve mutations, returns `{status}` to the parent. |
 
 ### `review-turn` — the shared review abstraction
@@ -169,7 +170,7 @@ thought-shower/
 ├── CANONICAL.md                       # /learn routing table
 ├── commands/{start,ship,thought-shower,status,resume}.md
 ├── skills/{brainstorming-lite,prompt,learn,review-turn,visualize-as-html,telegram,telegram-on,telegram-off}/SKILL.md
-├── agents/coderabbit-shepherd.md
+├── agents/{codex-reviewer,coderabbit-shepherd}.md
 ├── scripts/{cr-fresh-review,cr-threads}.sh
 ├── scripts/telegram-bridge/           # Daemon + helpers (Bun)
 ├── docs/superpowers/{plans,specs}/    # Brainstorming + plan artifacts
