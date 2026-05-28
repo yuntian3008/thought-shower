@@ -40,5 +40,5 @@ Continue from this stage? [yes | no | run /status only]
 ### 4. Special cases
 
 - **Stage 6 detected** → report `PR is ready to merge. Run /thought-shower:ship for the handoff summary.`
-- **Codex stage uncertain** → if next-stage is "Stage 3 or later", tell the user: `Codex run state unknown — /ship will re-run codex:rescue.`
+- **Codex stage uncertain** → if next-stage is "Stage 3 or later", tell the user: `Codex run state unknown — /ship will re-run Codex review.`
 - **Stage detection fails** → print the failure and stop.

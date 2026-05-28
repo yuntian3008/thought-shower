@@ -12,7 +12,7 @@ Verify required dependencies are loaded. If ANY missing, stop and report (same m
 
 - skill `superpowers:finishing-a-development-branch`
 - skill `superpowers:receiving-code-review`
-- agent `codex:codex-rescue`
+- agent `thought-shower:codex-reviewer`
 
 Also verify `gh auth status` succeeds.
 
@@ -63,10 +63,10 @@ PR_NUMBER=$(gh pr view --json number -q .number)
 ## Stage 3 — Codex turn (default 1 round)
 
 1. Capture starting HEAD: `HEAD_AT_CODEX_START=$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)`.
-2. Use the `Agent` tool to dispatch `codex:codex-rescue`:
-   - `subagent_type: "codex:codex-rescue"`
-   - prompt: `Review the diff of PR #<PR_NUMBER> against base <RECORDED_BASE>. Report findings grouped by severity.`
-3. When `codex:codex-rescue` returns, the findings text is the agent's final message.
+2. Use the `Agent` tool to dispatch `thought-shower:codex-reviewer`:
+   - `subagent_type: "thought-shower:codex-reviewer"`
+   - prompt: `Review against base <RECORDED_BASE>.`
+3. When `thought-shower:codex-reviewer` returns, the findings text is the agent's final message.
 4. Invoke the `Skill` tool with `thought-shower:review-turn` and pass `{reviewer: "codex", findings: <agent output>}`. The skill will:
    - Apply `superpowers:receiving-code-review` discipline (verify before agreeing).
    - Group by severity, present per-item recommendations to the user.
@@ -76,11 +76,11 @@ PR_NUMBER=$(gh pr view --json number -q .number)
 
    Ask the user:
    ```
-   Codex turn complete. Re-run codex:rescue on the new HEAD, or move to CodeRabbit?
+   Codex turn complete. Re-run Codex review on the new HEAD, or move to CodeRabbit?
    [re-run | move-on]
    ```
 
-   - `re-run`: capture new HEAD, dispatch `codex:codex-rescue` again, repeat steps 3–6.
+   - `re-run`: capture new HEAD, dispatch `thought-shower:codex-reviewer` again, repeat steps 3–6.
    - `move-on`: proceed to step 7.
 
 7. **Post the Codex-turn summary comment on the PR.** Use the HTML marker so the comment is identifiable on re-runs. Compose the body from the FINAL round only (re-runs supersede earlier rounds):
